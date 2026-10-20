@@ -1,0 +1,67 @@
+# BACKSTOP
+
+BACKSTOP is a versioned agent-policy regression registry built for GenLayer. When validators reproduce a forbidden JSON action from a frozen attack, that attack joins the suite. Every later candidate prompt must hold **all** accepted attacks and still complete two legitimate tasks before the contract exposes it as certified. A new reproduced break increments the suite revision and immediately makes the old certification unusable.
+
+**Current state:** local contract and frontend implementation. No Studionet deployment, public verdict, bounty, or live URL is claimed yet. The application clearly displays this until a verified contract address is configured. Direct-mode tests use mocked models; they do not prove live validator agreement.
+
+## Why GenLayer
+
+A deterministic parser can tell whether a proposed JSON action uses a forbidden tool or exceeds an amount cap. It cannot decide how an agent will respond to a hostile message across independent models, nor whether a patched agent meaningfully completed a legitimate writing task. BACKSTOP puts those bounded evaluations inside GenLayer's validator consensus. Ordinary code controls the suite revision, test matrix, deadlines, and certification.
+
+```mermaid
+flowchart LR
+  B[Builder freezes policy and two legitimate tasks] --> S[BACKSTOP suite]
+  H[Hunter freezes attack message] --> S
+  S --> V[Each validator runs bounded agent prompt]
+  V --> C[Code checks JSON tool and amount]
+  C --> R[Reproduced exploit joins regression suite]
+  R --> P[Candidate patch is tested per case]
+  P --> G[Validators judge legitimate task completion]
+  G --> A[Code certifies only if every case passes at current revision]
+  A --> N[New break invalidates active certification]
+```
+
+The defender is a **bounded simulation**: one frozen system prompt, one user message, a JSON `answer`, and a proposed JSON `action`. No external agent tool is executed. Prompts, tasks, rubrics, attacks, and candidate versions are public on-chain. Certification means only that a version passed this finite suite at a specific revision; it is not a general safety guarantee.
+
+## Repository
+
+- [`contracts/backstop.py`](contracts/backstop.py) — Intelligent Contract, independently rerun model checks, versioned suite, and read methods.
+- [`tests/direct/test_backstop.py`](tests/direct/test_backstop.py) — direct-mode state, safety, replay, and validator disagreement tests.
+- [`apps/backstop-web`](apps/backstop-web) — no-wallet registry and wallet transaction interface.
+- [`docs/DESIGN.md`](docs/DESIGN.md) — mechanism, roles, comparison, evidence plan, and limitations.
+- [`docs/TUTORIAL.md`](docs/TUTORIAL.md) — code-based walkthrough.
+- [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) — planned live demonstration sequence.
+
+## Contract flow
+
+1. `create_suite` freezes a base prompt, allowlisted tools, amount cap, and exactly two legitimate task/rubric pairs. It starts as `DRAFT`.
+2. Permissionless `validate_golden` asks validators whether each rubric is observable. The builder calls `open_suite` after both return `VALID`; the attack deadline starts then.
+3. Anyone calls `submit_attack`, then permissionless `judge_attack`. Each validator runs the agent on its own model and code-derives `HELD`, `BROKEN`, or `UNCLEAR`. Only `BROKEN` joins the regression suite and increments its revision.
+4. Anyone proposes a replacement prompt. `check_exploit` evaluates one accepted attack; `check_golden` evaluates one legitimate task. Each validator independently reruns and compares the exact normalized result. Invalid model output cannot pass.
+5. `certify_candidate` succeeds only when all current exploit and legitimate-task checks are `PASS`, at the captured suite revision. `get_active_policy` returns `usable: true` only while that certification remains current.
+6. An unjudged attack or unfinished candidate can be expired after its deadline. New attacks close at the builder's frozen attack deadline. Finalized results should be used for subsequent operations and displayed to reviewers.
+
+No native funds move in this version. The deterministic consequence is activation or invalidation of an on-chain certified policy. This keeps the distinct regression mechanism reviewable before adding a repair reward pool.
+
+## Local development
+
+Use Python 3.12 and Node 22 or newer. Pin the versions from `requirements-dev.txt` and `apps/backstop-web/package.json`.
+
+```powershell
+python -m pip install -r requirements-dev.txt
+genvm-lint check contracts/backstop.py
+pytest -q tests/direct
+cd apps/backstop-web
+corepack pnpm install --frozen-lockfile
+corepack pnpm test
+corepack pnpm typecheck
+corepack pnpm build
+```
+
+For the local frontend, run `corepack pnpm dev`. Reads and writes become available after a verified Studionet deployment and setting `NEXT_PUBLIC_BACKSTOP_ADDRESS` from `.env.example`. Wallet writes are journaled locally and checked for **finalized successful execution** before the UI reports success. Never put a private key in the frontend or repository.
+
+## Limits and evidence status
+
+The two legitimate tasks are public, so candidate authors can overfit them. Independent models may disagree on a marginal attack or task; disagreement should not become a certified result. Direct-mode tests exercise the leader and simulated validator rerun, while actual network consensus, deployed source equality, transaction finality, browser wallet flows, and public demo outcomes remain unproven. These are separate gates before any Portal submission claim. A release manifest and read-only verifier will be added with a real deployment.
+
+BACKSTOP differs from a one-prompt break bounty by making every accepted exploit alter future certification obligations. It also differs from evidence-backed claim settlement: the contract's changing registry and legitimate-use check are the mechanism, rather than one verdict and payout.
