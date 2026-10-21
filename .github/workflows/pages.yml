@@ -1,6 +1,11 @@
 name: Publish BACKSTOP web
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/backstop-web/**"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
