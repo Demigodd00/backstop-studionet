@@ -15,6 +15,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
       - run: genvm-lint check contracts/backstop.py
+      - run: python scripts/prepare_gltest_runner.py
       - run: pytest -q tests/direct
 
   frontend:
