@@ -77,7 +77,9 @@ def verify_receipt(client, record: dict, account) -> None:
     status = receipt.get("status_name") or receipt.get("statusName")
     record["receipt_status"] = status
     record["execution_result"] = "SUCCESS" if tx_execution_succeeded(receipt) else "ERROR"
-    record["votes"] = receipt.get("consensus_data") or receipt.get("consensusData")
+    consensus = receipt.get("consensus_data") or receipt.get("consensusData") or {}
+    record["votes"] = consensus.get("votes", {})
+    record["consensus_result"] = receipt.get("result_name") or receipt.get("resultName")
     save(record)
     if status != TransactionStatus.FINALIZED.value or not tx_execution_succeeded(receipt):
         raise RuntimeError("deployment did not finalize with successful execution")

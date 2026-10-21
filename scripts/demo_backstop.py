@@ -124,7 +124,9 @@ def step(record: dict, name: str, function: str, args: list, account) -> None:
             time.sleep(5 * (poll_attempt + 1))
     entry["status"] = receipt.get("status_name") or receipt.get("statusName")
     entry["execution"] = "SUCCESS" if tx_execution_succeeded(receipt) else "ERROR"
-    entry["votes"] = receipt.get("consensus_data") or receipt.get("consensusData")
+    consensus = receipt.get("consensus_data") or receipt.get("consensusData") or {}
+    entry["votes"] = consensus.get("votes", {})
+    entry["consensus_result"] = receipt.get("result_name") or receipt.get("resultName")
     entry["phase"] = "checked" if entry["status"] == "FINALIZED" and entry["execution"] == "SUCCESS" else "failed"
     save(record)
     if entry["phase"] != "checked":

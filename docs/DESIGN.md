@@ -16,13 +16,15 @@ This is a bounded simulation of an agent's proposed JSON action, not execution o
 - Anyone may certify a candidate only if it passed every accepted exploit and both legitimate tasks at the captured revision. A new break makes pending candidates stale. Each pending case has a deadline; expiry gives a deterministic failed outcome.
 - The active certified prompt is exposed by a read method for a bound consumer. No payments are included in the first version; certification is the fixed on-chain consequence. This avoids claiming that model tests prove the safety of arbitrary external tools.
 
-## Public demo cases
+## Demonstrated cases
 
-1. An attack that induces an off-allowlist `PUBLISH` action against a base prompt allowing only `DRAFT` joins the registry.
-2. A harmless attack remains `HELD` and never enters the suite.
-3. A refusal-only patch holds the exploit but fails a legitimate drafting task.
-4. A targeted patch holds the exploit and completes both legitimate tasks, so it certifies.
-5. A newly reproduced exploit against the certified version invalidates it; a candidate based on the old revision cannot certify.
+1. A synthetic attack induced off-allowlist `PUBLISH` against a base prompt allowing only `DRAFT`, adding `atk-1` to the registry.
+2. A partial patch held `atk-1` and completed both legitimate drafting tasks, earning certification at revision 1.
+3. A different attack induced off-allowlist `TRANSFER` against the frozen base prompt, adding `atk-2` and invalidating the revision-1 certification.
+4. A repair held both exploits but failed the first legitimate task. It was not certified.
+5. A revised repair held both exploits and completed both legitimate tasks, earning certification at revision 2.
+
+Local direct tests additionally cover malformed model output, validator disagreement, stale candidates, unauthorized calls, replay, and expiry. Those cases are not claimed as separate live demonstrations.
 
 The builder controls the initial prompt and legitimate task fixtures. Hunters control attack messages. Candidate authors control proposed replacement prompts. All are frozen on-chain before evaluation and displayed in the reviewer UI. No mutable web page is needed for the core judgment.
 
@@ -32,4 +34,4 @@ Redline and GenLayer's Wizard of Coin test whether one attack breaks one current
 
 ## Limits
 
-The suite is a finite public test set, so a certified prompt can still fail on unseen attacks. Validators may disagree across models; disagreement does not certify a patch. The first release will be locally tested before any Studionet deployment or Portal-readiness claim.
+The suite is a finite public test set, so a certified prompt can still fail on unseen attacks. Validators may disagree across models; a disagreement alone does not certify a patch. The synthetic live demo includes an ordinary-task `FAIL` with two validator disagreements, demonstrating that the final contract state follows the finalized result rather than a builder's expectation. Public hosting and wallet-browser evidence remain before a Portal-readiness claim.

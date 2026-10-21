@@ -2,7 +2,7 @@
 
 BACKSTOP is a versioned agent-policy regression registry built for GenLayer. When validators reproduce a forbidden JSON action from a frozen attack, that attack joins the suite. Every later candidate prompt must hold **all** accepted attacks and still complete two legitimate tasks before the contract exposes it as certified. A new reproduced break increments the suite revision and immediately makes the old certification unusable.
 
-**Current state:** the contract is [deployed on Studionet](https://explorer-studio.genlayer.com/address/0x85ea679b9f495196A2c229C925dA24Dfc10d3401), with a [finalized successful deployment receipt](https://explorer-studio.genlayer.com/tx/0x5d5e60dc645320205f3b353298ad4940705ac5923d53808038be6b89fd2c0fd4) and source verification recorded in [`deploy/proof.json`](deploy/proof.json). The live regression demonstration and public frontend are still in progress. Direct-mode tests use mocked models; they do not prove live validator agreement.
+**Current state:** the contract is [deployed on Studionet](https://explorer-studio.genlayer.com/address/0x85ea679b9f495196A2c229C925dA24Dfc10d3401). The deployment and 23 live demo transactions finalized with successful execution. The demo shows two reproduced breaks, certification at revision 1, invalidation at revision 2, one repair rejected for failing ordinary work, and certification of a revised repair at revision 2. See the [review trail](docs/DEMO_SCRIPT.md), [`deploy/proof.json`](deploy/proof.json), and [`deploy/demo.json`](deploy/demo.json). A public frontend and browser wallet transaction test are still pending.
 
 ## Why GenLayer
 
@@ -30,9 +30,10 @@ The defender is a **bounded simulation**: one frozen system prompt, one user mes
 - [`apps/backstop-web`](apps/backstop-web) — no-wallet registry and wallet transaction interface.
 - [`docs/DESIGN.md`](docs/DESIGN.md) — mechanism, roles, comparison, evidence plan, and limitations.
 - [`docs/TUTORIAL.md`](docs/TUTORIAL.md) — code-based walkthrough.
-- [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) — planned live demonstration sequence.
+- [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) — completed live demonstration and reviewer links.
 - [`scripts/deploy_backstop.py`](scripts/deploy_backstop.py) and [`deploy/proof.json`](deploy/proof.json) — resumable deployment and verified source record.
 - [`scripts/demo_backstop.py`](scripts/demo_backstop.py) — resumable synthetic live regression demonstration.
+- [`scripts/verify_backstop.py`](scripts/verify_backstop.py) — read-only verification of deployed source, finalized receipts, and current state.
 
 ## Contract flow
 
@@ -52,6 +53,7 @@ Use Python 3.12 and Node 22 or newer. Pin the versions from `requirements-dev.tx
 ```powershell
 python -m pip install -r requirements-dev.txt
 genvm-lint check contracts/backstop.py
+python scripts/prepare_gltest_runner.py
 pytest -q tests/direct
 cd apps/backstop-web
 corepack pnpm install --frozen-lockfile
@@ -60,10 +62,10 @@ corepack pnpm typecheck
 corepack pnpm build
 ```
 
-For the local frontend, copy `.env.example` to `.env.local` and run `corepack pnpm dev`. The example now points to the verified Studionet contract. Wallet writes are journaled locally and checked for **finalized successful execution** before the UI reports success. Never put a private key in the frontend or repository.
+For the local frontend, copy `.env.example` to `.env.local` and run `corepack pnpm dev`. The example points to the verified Studionet contract. The no-wallet registry has been checked in a browser against `bs-1`. Wallet writes are journaled locally and checked for **finalized successful execution** before the UI reports success; an actual browser wallet write is still untested. Never put a private key in the frontend or repository. Run `python -m pip install -r requirements-deploy.txt` and `python scripts/verify_backstop.py` to recheck the public chain proof without a wallet key.
 
 ## Limits and evidence status
 
-The two legitimate tasks are public, so candidate authors can overfit them. Independent models may disagree on a marginal attack or task; disagreement should not become a certified result. Direct-mode tests exercise the leader and simulated validator rerun. The deployed source and deployment finality are verified; actual judgment consensus, browser wallet flows, and public demo outcomes remain unproven. These are separate gates before any Portal submission claim. A read-only proof verifier will be added after the live demonstration.
+The two legitimate tasks are public, so candidate authors can overfit them. The demo policy and attacks are synthetic and intentionally flawed; they are not evidence about a production agent. Independent models can disagree on a marginal attack or task; the failed `cand-2` golden check had two disagreeing validator votes and still finalized as `FAIL`. The read-only verifier checks the deployed source, every finalized receipt, and the final on-chain state. Public hosting, logged-out repository access, and a real browser wallet write remain separate gates before any Portal submission claim.
 
 BACKSTOP differs from a one-prompt break bounty by making every accepted exploit alter future certification obligations. It also differs from evidence-backed claim settlement: the contract's changing registry and legitimate-use check are the mechanism, rather than one verdict and payout.
