@@ -18,6 +18,7 @@ from deploy_backstop import PROOF, ROOT
 from demo_backstop import JOURNAL
 
 QA = ROOT / "deploy" / "browser-qa.json"
+FLOW_QA = ROOT / "deploy" / "browser-flow-qa.json"
 
 
 def retry(fn):
@@ -34,9 +35,13 @@ def main() -> None:
     deployment = json.loads(PROOF.read_text(encoding="utf-8"))
     demo = json.loads(JOURNAL.read_text(encoding="utf-8"))
     browser_qa = json.loads(QA.read_text(encoding="utf-8"))
+    flow_qa = json.loads(FLOW_QA.read_text(encoding="utf-8"))
     assert deployment["phase"] == "verified" and demo["phase"] == "verified"
     assert deployment["address"] == demo["contract"]
     assert browser_qa["contract"] == deployment["address"]
+    assert flow_qa["contract"] == deployment["address"]
+    assert flow_qa["source_commit"] == deployment["commit"]
+    assert flow_qa["network"] == "studionet"
     assert browser_qa["method"] == "create_suite"
     assert browser_qa["status"] == "FINALIZED" and browser_qa["execution"] == "SUCCESS"
     assert browser_qa["value_wei"] == "0"
@@ -70,7 +75,33 @@ def main() -> None:
         print("verified_transaction=" + label, flush=True)
     qa_receipt = receipt(browser_qa["transaction"])
     assert str(qa_receipt["value"]) == browser_qa["value_wei"]
-    print("verified_transaction=browser_create_suite", flush=True)
+    print("verified_transaction=browser_draft_create_suite", flush=True)
+    expected_flow = {
+        "create_suite": "create_suite",
+        "validate_golden_0": "validate_golden",
+        "validate_golden_1": "validate_golden",
+        "open_suite": "open_suite",
+        "submit_attack": "submit_attack",
+        "judge_attack": "judge_attack",
+        "propose_candidate": "propose_candidate",
+        "check_exploit": "check_exploit",
+        "check_golden_0": "check_golden",
+        "check_golden_1": "check_golden",
+        "certify_candidate": "certify_candidate",
+    }
+    assert tuple(flow_qa["transactions"]) == tuple(expected_flow)
+    for label, entry in flow_qa["transactions"].items():
+        assert entry["method"] == expected_flow[label], label
+        assert entry["status"] == "FINALIZED" and entry["execution"] == "SUCCESS", label
+        assert entry["value_wei"] == "0", label
+        flow_receipt = receipt(entry["hash"])
+        assert flow_receipt["to_address"].lower() == deployment["address"].lower(), label
+        assert flow_receipt["from_address"].lower() == flow_qa["wallet"].lower(), label
+        assert entry["sender"].lower() == flow_qa["wallet"].lower(), label
+        assert str(flow_receipt["value"]) == entry["value_wei"], label
+        assert entry["votes"], label
+        assert flow_receipt.get("consensus_data", {}).get("votes", {}) == entry["votes"], label
+        print("verified_transaction=browser_" + label, flush=True)
 
     def read(method: str, args: list):
         return retry(lambda: client.read_contract(
@@ -109,6 +140,26 @@ def main() -> None:
     assert qa_suite["id"] == qa_readback["suite_id"]
     assert qa_suite["name"] == qa_readback["name"]
     assert qa_suite["terms_digest"] == qa_readback["terms_digest"]
+    flow_suite = read("get_suite", [flow_qa["suite_id"]])
+    flow_attack = read("get_attack", [flow_qa["attack_id"]])
+    flow_candidate = read("get_candidate", [flow_qa["candidate_id"]])
+    flow_active = read("get_active_policy", [flow_qa["suite_id"]])
+    flow_readback = flow_qa["readback"]
+    assert flow_suite["builder"].lower() == flow_qa["wallet"].lower()
+    for field in ("status", "revision", "golden_validation", "regression_ids",
+                  "active_candidate_id", "terms_digest"):
+        recorded = flow_readback["suite_status"] if field == "status" else flow_readback[field]
+        assert flow_suite[field] == recorded, field
+    assert flow_attack["suite_id"] == flow_qa["suite_id"]
+    assert flow_attack["status"] == flow_readback["attack_status"]
+    assert flow_candidate["status"] == flow_readback["candidate_status"]
+    assert flow_candidate["attack_checks"] == flow_readback["attack_checks"]
+    assert flow_candidate["golden_checks"] == flow_readback["golden_checks"]
+    assert flow_candidate["revision"] == flow_readback["revision"]
+    assert flow_active == {"usable": flow_readback["active_policy_usable"],
+                           "candidate_id": flow_qa["candidate_id"],
+                           "revision": flow_readback["revision"],
+                           "prompt": flow_candidate["prompt"]}
     print("verified_backstop_suite=" + suite_id, "contract=" + deployment["address"], flush=True)
 
 

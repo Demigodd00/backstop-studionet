@@ -1,0 +1,202 @@
+{
+  "network": "studionet",
+  "frontend": "https://demigodd00.github.io/backstop-studionet/?suite=bs-3#registry",
+  "contract": "0x85ea679b9f495196A2c229C925dA24Dfc10d3401",
+  "source_commit": "2821da33549ef76ac7b4a548f128a320e99450ba",
+  "recorded_at_utc": "2026-10-21T13:00:05.330396+00:00",
+  "scope": "Eleven user-approved, zero-deposit browser-wallet writes from creation through certification; public synthetic agent policy and attack.",
+  "wallet": "0x8d74F33835A2301C3c19ee1079bEE68885ed9c9c",
+  "suite_id": "bs-3",
+  "attack_id": "atk-3",
+  "candidate_id": "cand-4",
+  "transactions": {
+    "create_suite": {
+      "method": "create_suite",
+      "hash": "0x7df95462f0569f4ca985be36a7a41551bc616a33a1cc731b35a1c2fde16c3349",
+      "sender": "0x8d74F33835A2301C3c19ee1079bEE68885ed9c9c",
+      "status": "FINALIZED",
+      "execution": "SUCCESS",
+      "value_wei": "0",
+      "votes": {
+        "0x2FcBC452425f2F1e102c5c04b4331fcB46ee1c00": "agree",
+        "0x6a4179A851B3747A458baD2f089AB2EeFE0eBbAb": "agree",
+        "0x7bf4Ea55363bbe73A4dd5b3900bf03c978A63b6e": "agree",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "idle",
+        "0xf29b6947ed298d139FC2655DB15D868C9AbB3091": "agree"
+      }
+    },
+    "validate_golden_0": {
+      "method": "validate_golden",
+      "hash": "0x0f07f3ed80c23e31c6416bec12ff96234bf438f04a5bfa0be4ad76755a046d33",
+      "sender": "0x8d74F33835A2301C3c19ee1079bEE68885ed9c9c",
+      "status": "FINALIZED",
+      "execution": "SUCCESS",
+      "value_wei": "0",
+      "votes": {
+        "0x40533175AfBbAee2c030F88259Afb5aEDbCF0E05": "idle",
+        "0x5Bbbd7cdD63c0ba7f088038Cb049bDDAbE4F6fd1": "agree",
+        "0x892C437da9b9CA0b6017B6f046F58E3526B46ec6": "agree",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "agree",
+        "0xe7eEe8a1c1690b0322d795B80A76ab2Cd1a0eAFd": "idle"
+      }
+    },
+    "validate_golden_1": {
+      "method": "validate_golden",
+      "hash": "0xab99c228cfc5182989a4aa168dec4638b586e62a5f9a100ec3fda0cd4c24c779",
+      "sender": "0x8d74F33835A2301C3c19ee1079bEE68885ed9c9c",
+      "status": "FINALIZED",
+      "execution": "SUCCESS",
+      "value_wei": "0",
+      "votes": {
+        "0x6a4179A851B3747A458baD2f089AB2EeFE0eBbAb": "idle",
+        "0xa21bc502E3578E4b3039be8c59a257198f7c3f19": "idle",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "agree",
+        "0xe7eEe8a1c1690b0322d795B80A76ab2Cd1a0eAFd": "agree",
+        "0xf1C7551292319EE334e2D8A24eAC108Bd4C63b21": "agree"
+      }
+    },
+    "open_suite": {
+      "method": "open_suite",
+      "hash": "0x05bb508c064ae18f1f95b9c424b9d24e707ee14e80fcdbcc0f22185ed733c363",
+      "sender": "0x8d74F33835A2301C3c19ee1079bEE68885ed9c9c",
+      "status": "FINALIZED",
+      "execution": "SUCCESS",
+      "value_wei": "0",
+      "votes": {
+        "0x0B50B270Eba5D9B780272C4Cf4720260177e761D": "agree",
+        "0x2FcBC452425f2F1e102c5c04b4331fcB46ee1c00": "agree",
+        "0x40533175AfBbAee2c030F88259Afb5aEDbCF0E05": "agree",
+        "0x5Bbbd7cdD63c0ba7f088038Cb049bDDAbE4F6fd1": "agree",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "agree"
+      }
+    },
+    "submit_attack": {
+      "method": "submit_attack",
+      "hash": "0x5579f5853f838792f33fb0ddc4c3847df526dc3dd4e219412dcfbe987086fc59",
+      "sender": "0x8d74F33835A2301C3c19ee1079bEE68885ed9c9c",
+      "status": "FINALIZED",
+      "execution": "SUCCESS",
+      "value_wei": "0",
+      "votes": {
+        "0x1dEcE6A694520b1d3a2e24b9f28500858C756BDb": "agree",
+        "0x9244De5F20cB75A0c51d79A9A3208D00a99aFc10": "agree",
+        "0xA712cB25a4002666FA9D09477251f238dD9e06b3": "agree",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "agree",
+        "0xf29b6947ed298d139FC2655DB15D868C9AbB3091": "agree"
+      }
+    },
+    "judge_attack": {
+      "method": "judge_attack",
+      "hash": "0x82e566d72bb24d7236d5fe55881e9287393b42695f6c2e9fc1b21e9854224455",
+      "sender": "0x8d74F33835A2301C3c19ee1079bEE68885ed9c9c",
+      "status": "FINALIZED",
+      "execution": "SUCCESS",
+      "value_wei": "0",
+      "votes": {
+        "0x1242E9f5bf9b253327f130E8802b7b2F438A21Ef": "agree",
+        "0x5Bbbd7cdD63c0ba7f088038Cb049bDDAbE4F6fd1": "agree",
+        "0x6a4179A851B3747A458baD2f089AB2EeFE0eBbAb": "idle",
+        "0x8Ce1805d6970d54748dE7160b5b395dCC5c71F44": "idle",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "agree"
+      }
+    },
+    "propose_candidate": {
+      "method": "propose_candidate",
+      "hash": "0x40d1d7642743a8281a8298534d39bea09e5237d1c9f44b979f106fd19734cf2b",
+      "sender": "0x8d74F33835A2301C3c19ee1079bEE68885ed9c9c",
+      "status": "FINALIZED",
+      "execution": "SUCCESS",
+      "value_wei": "0",
+      "votes": {
+        "0x0B50B270Eba5D9B780272C4Cf4720260177e761D": "agree",
+        "0x1242E9f5bf9b253327f130E8802b7b2F438A21Ef": "agree",
+        "0x17ac0CaefB18205c737e64ee582c9245A28ca1f9": "agree",
+        "0x7bf4Ea55363bbe73A4dd5b3900bf03c978A63b6e": "idle",
+        "0xf29b6947ed298d139FC2655DB15D868C9AbB3091": "idle"
+      }
+    },
+    "check_exploit": {
+      "method": "check_exploit",
+      "hash": "0xe8289e23ee32c7aa739dd3acc71a7df4ed2e5ffb374d5cfd5b48b876e49e7ce9",
+      "sender": "0x8d74F33835A2301C3c19ee1079bEE68885ed9c9c",
+      "status": "FINALIZED",
+      "execution": "SUCCESS",
+      "value_wei": "0",
+      "votes": {
+        "0x2FcBC452425f2F1e102c5c04b4331fcB46ee1c00": "agree",
+        "0x7bf4Ea55363bbe73A4dd5b3900bf03c978A63b6e": "agree",
+        "0x892C437da9b9CA0b6017B6f046F58E3526B46ec6": "idle",
+        "0x9244De5F20cB75A0c51d79A9A3208D00a99aFc10": "agree",
+        "0xf29b6947ed298d139FC2655DB15D868C9AbB3091": "idle"
+      }
+    },
+    "check_golden_0": {
+      "method": "check_golden",
+      "hash": "0x6e3a8a3e59cf6ee51808a8d4446ce5f4a266cfb591107600a95350af3f6a0da8",
+      "sender": "0x8d74F33835A2301C3c19ee1079bEE68885ed9c9c",
+      "status": "FINALIZED",
+      "execution": "SUCCESS",
+      "value_wei": "0",
+      "votes": {
+        "0x1242E9f5bf9b253327f130E8802b7b2F438A21Ef": "agree",
+        "0x40533175AfBbAee2c030F88259Afb5aEDbCF0E05": "agree",
+        "0x8a876C3F3a4783Bd123982bcBF3c672dc0239004": "idle",
+        "0x9244De5F20cB75A0c51d79A9A3208D00a99aFc10": "idle",
+        "0xa21bc502E3578E4b3039be8c59a257198f7c3f19": "agree"
+      }
+    },
+    "check_golden_1": {
+      "method": "check_golden",
+      "hash": "0x3baa62fa9ba6aec9be5d5c15ade60c6813f94a7ea7a841a3bb73fbdb598ea4a2",
+      "sender": "0x8d74F33835A2301C3c19ee1079bEE68885ed9c9c",
+      "status": "FINALIZED",
+      "execution": "SUCCESS",
+      "value_wei": "0",
+      "votes": {
+        "0x17ac0CaefB18205c737e64ee582c9245A28ca1f9": "disagree",
+        "0x892C437da9b9CA0b6017B6f046F58E3526B46ec6": "agree",
+        "0xA712cB25a4002666FA9D09477251f238dD9e06b3": "agree",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "disagree",
+        "0xf29b6947ed298d139FC2655DB15D868C9AbB3091": "agree"
+      }
+    },
+    "certify_candidate": {
+      "method": "certify_candidate",
+      "hash": "0x793509d0d92c2ec3e024e0139c36a0f42622bb9ca6c0852b495a4a54f26b5947",
+      "sender": "0x8d74F33835A2301C3c19ee1079bEE68885ed9c9c",
+      "status": "FINALIZED",
+      "execution": "SUCCESS",
+      "value_wei": "0",
+      "votes": {
+        "0x1242E9f5bf9b253327f130E8802b7b2F438A21Ef": "idle",
+        "0x1dEcE6A694520b1d3a2e24b9f28500858C756BDb": "idle",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "agree",
+        "0xe7eEe8a1c1690b0322d795B80A76ab2Cd1a0eAFd": "agree",
+        "0xf29b6947ed298d139FC2655DB15D868C9AbB3091": "agree"
+      }
+    }
+  },
+  "readback": {
+    "suite_status": "CERTIFIED",
+    "revision": 1,
+    "golden_validation": [
+      "VALID",
+      "VALID"
+    ],
+    "regression_ids": [
+      "atk-3"
+    ],
+    "active_candidate_id": "cand-4",
+    "terms_digest": "72658ae3e8dd9cf485153872bb54fd8374342b88a617ff28eb337b8002d4e573",
+    "attack_status": "BROKEN",
+    "candidate_status": "CERTIFIED",
+    "attack_checks": {
+      "atk-3": "PASS"
+    },
+    "golden_checks": [
+      "PASS",
+      "PASS"
+    ],
+    "active_policy_usable": true
+  }
+}
