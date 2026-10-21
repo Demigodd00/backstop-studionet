@@ -2,7 +2,7 @@
 
 BACKSTOP is a versioned agent-policy regression registry built for GenLayer. When validators reproduce a forbidden JSON action from a frozen attack, that attack joins the suite. Every later candidate prompt must hold **all** accepted attacks and still complete two legitimate tasks before the contract exposes it as certified. A new reproduced break increments the suite revision and immediately makes the old certification unusable.
 
-**Current state:** local contract and frontend implementation. No Studionet deployment, public verdict, bounty, or live URL is claimed yet. The application clearly displays this until a verified contract address is configured. Direct-mode tests use mocked models; they do not prove live validator agreement.
+**Current state:** the contract is [deployed on Studionet](https://explorer-studio.genlayer.com/address/0x85ea679b9f495196A2c229C925dA24Dfc10d3401), with a [finalized successful deployment receipt](https://explorer-studio.genlayer.com/tx/0x5d5e60dc645320205f3b353298ad4940705ac5923d53808038be6b89fd2c0fd4) and source verification recorded in [`deploy/proof.json`](deploy/proof.json). The live regression demonstration and public frontend are still in progress. Direct-mode tests use mocked models; they do not prove live validator agreement.
 
 ## Why GenLayer
 
@@ -31,6 +31,8 @@ The defender is a **bounded simulation**: one frozen system prompt, one user mes
 - [`docs/DESIGN.md`](docs/DESIGN.md) — mechanism, roles, comparison, evidence plan, and limitations.
 - [`docs/TUTORIAL.md`](docs/TUTORIAL.md) — code-based walkthrough.
 - [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) — planned live demonstration sequence.
+- [`scripts/deploy_backstop.py`](scripts/deploy_backstop.py) and [`deploy/proof.json`](deploy/proof.json) — resumable deployment and verified source record.
+- [`scripts/demo_backstop.py`](scripts/demo_backstop.py) — resumable synthetic live regression demonstration.
 
 ## Contract flow
 
@@ -58,10 +60,10 @@ corepack pnpm typecheck
 corepack pnpm build
 ```
 
-For the local frontend, run `corepack pnpm dev`. Reads and writes become available after a verified Studionet deployment and setting `NEXT_PUBLIC_BACKSTOP_ADDRESS` from `.env.example`. Wallet writes are journaled locally and checked for **finalized successful execution** before the UI reports success. Never put a private key in the frontend or repository.
+For the local frontend, copy `.env.example` to `.env.local` and run `corepack pnpm dev`. The example now points to the verified Studionet contract. Wallet writes are journaled locally and checked for **finalized successful execution** before the UI reports success. Never put a private key in the frontend or repository.
 
 ## Limits and evidence status
 
-The two legitimate tasks are public, so candidate authors can overfit them. Independent models may disagree on a marginal attack or task; disagreement should not become a certified result. Direct-mode tests exercise the leader and simulated validator rerun, while actual network consensus, deployed source equality, transaction finality, browser wallet flows, and public demo outcomes remain unproven. These are separate gates before any Portal submission claim. A release manifest and read-only verifier will be added with a real deployment.
+The two legitimate tasks are public, so candidate authors can overfit them. Independent models may disagree on a marginal attack or task; disagreement should not become a certified result. Direct-mode tests exercise the leader and simulated validator rerun. The deployed source and deployment finality are verified; actual judgment consensus, browser wallet flows, and public demo outcomes remain unproven. These are separate gates before any Portal submission claim. A read-only proof verifier will be added after the live demonstration.
 
 BACKSTOP differs from a one-prompt break bounty by making every accepted exploit alter future certification obligations. It also differs from evidence-backed claim settlement: the contract's changing registry and legitimate-use check are the mechanism, rather than one verdict and payout.
