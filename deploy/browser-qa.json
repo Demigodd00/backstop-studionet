@@ -1,0 +1,18 @@
+{
+  "network": "studionet",
+  "frontend": "https://demigodd00.github.io/backstop-studionet/",
+  "contract": "0x85ea679b9f495196A2c229C925dA24Dfc10d3401",
+  "method": "create_suite",
+  "transaction": "0x8507c90f9af4bedf7f9a26bac2bcff698f660abfa83ed8555ee415567191d1b2",
+  "status": "FINALIZED",
+  "execution": "SUCCESS",
+  "value_wei": "0",
+  "readback": {
+    "suite_id": "bs-2",
+    "name": "BACKSTOP browser QA 2026-10-21",
+    "status_at_check": "DRAFT",
+    "revision_at_check": 0,
+    "terms_digest": "4af450fc789635ccd0a5b98bd6d6a47de57fa15acfc8be6dfc3ec2e7960ca997"
+  },
+  "scope": "User-approved browser wallet write on the public frontend; other contract methods were exercised through CLI, not by browser wallet."
+}

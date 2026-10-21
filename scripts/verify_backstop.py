@@ -17,6 +17,8 @@ from genlayer_py.types import TransactionHashVariant, TransactionStatus
 from deploy_backstop import PROOF, ROOT
 from demo_backstop import JOURNAL
 
+QA = ROOT / "deploy" / "browser-qa.json"
+
 
 def retry(fn):
     for attempt in range(3):
@@ -31,8 +33,13 @@ def retry(fn):
 def main() -> None:
     deployment = json.loads(PROOF.read_text(encoding="utf-8"))
     demo = json.loads(JOURNAL.read_text(encoding="utf-8"))
+    browser_qa = json.loads(QA.read_text(encoding="utf-8"))
     assert deployment["phase"] == "verified" and demo["phase"] == "verified"
     assert deployment["address"] == demo["contract"]
+    assert browser_qa["contract"] == deployment["address"]
+    assert browser_qa["method"] == "create_suite"
+    assert browser_qa["status"] == "FINALIZED" and browser_qa["execution"] == "SUCCESS"
+    assert browser_qa["value_wei"] == "0"
     committed = subprocess.check_output(
         ["git", "show", deployment["commit"] + ":contracts/backstop.py"], cwd=ROOT
     )
@@ -46,13 +53,14 @@ def main() -> None:
     deployed = base64.b64decode(encoded, validate=True)
     assert hashlib.sha256(deployed.replace(b"\r\n", b"\n")).hexdigest() == expected_digest
 
-    def receipt(tx_hash: str) -> None:
+    def receipt(tx_hash: str) -> dict:
         value = retry(lambda: client.wait_for_transaction_receipt(
             transaction_hash=tx_hash, status=TransactionStatus.FINALIZED,
             interval=3000, retries=3, full_transaction=True,
         ))
         assert (value.get("status_name") or value.get("statusName")) == "FINALIZED"
         assert tx_execution_succeeded(value)
+        return value
 
     receipt(deployment["deploy_tx"])
     for label, entry in demo["transactions"].items():
@@ -60,6 +68,9 @@ def main() -> None:
         assert entry["status"] == "FINALIZED" and entry["execution"] == "SUCCESS", label
         receipt(entry["hash"])
         print("verified_transaction=" + label, flush=True)
+    qa_receipt = receipt(browser_qa["transaction"])
+    assert str(qa_receipt["value"]) == browser_qa["value_wei"]
+    print("verified_transaction=browser_create_suite", flush=True)
 
     def read(method: str, args: list):
         return retry(lambda: client.read_contract(
@@ -93,6 +104,11 @@ def main() -> None:
     active = read("get_active_policy", [suite_id])
     assert active == {"usable": True, "candidate_id": final,
                       "revision": 2, "prompt": second["prompt"]}
+    qa_readback = browser_qa["readback"]
+    qa_suite = read("get_suite", [qa_readback["suite_id"]])
+    assert qa_suite["id"] == qa_readback["suite_id"]
+    assert qa_suite["name"] == qa_readback["name"]
+    assert qa_suite["terms_digest"] == qa_readback["terms_digest"]
     print("verified_backstop_suite=" + suite_id, "contract=" + deployment["address"], flush=True)
 
 
