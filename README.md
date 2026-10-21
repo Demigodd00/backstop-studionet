@@ -31,6 +31,7 @@ The defender is a **bounded simulation**: one frozen system prompt, one user mes
 - [`docs/DESIGN.md`](docs/DESIGN.md) — mechanism, roles, comparison, evidence plan, and limitations.
 - [`docs/TUTORIAL.md`](docs/TUTORIAL.md) — code-based walkthrough.
 - [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) — completed live demonstration and reviewer links.
+- [`docs/SUBMISSION.md`](docs/SUBMISSION.md) — copyable Portal handoff draft and public evidence links.
 - [`scripts/deploy_backstop.py`](scripts/deploy_backstop.py) and [`deploy/proof.json`](deploy/proof.json) — resumable deployment and verified source record.
 - [`scripts/demo_backstop.py`](scripts/demo_backstop.py) — resumable synthetic live regression demonstration.
 - [`deploy/browser-qa.json`](deploy/browser-qa.json) — public-frontend wallet transaction and immutable read-back.

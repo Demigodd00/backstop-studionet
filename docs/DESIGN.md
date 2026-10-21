@@ -34,4 +34,4 @@ Redline and GenLayer's Wizard of Coin test whether one attack breaks one current
 
 ## Limits
 
-The suite is a finite public test set, so a certified prompt can still fail on unseen attacks. Validators may disagree across models; a disagreement alone does not certify a patch. The synthetic live demo includes an ordinary-task `FAIL` with two validator disagreements, demonstrating that the final contract state follows the finalized result rather than a builder's expectation. Public hosting and wallet-browser evidence remain before a Portal-readiness claim.
+The suite is a finite public test set, so a certified prompt can still fail on unseen attacks. Validators may disagree across models; a disagreement alone does not certify a patch. The synthetic live demo includes an ordinary-task `FAIL` with two validator disagreements, demonstrating that the final contract state follows the finalized result rather than a builder's expectation. The public frontend and one browser-wallet `create_suite` write are verified; other frontend write actions have live CLI proof but have not each been tested through the browser wallet.
