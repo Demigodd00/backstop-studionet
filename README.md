@@ -32,6 +32,7 @@ The defender is a **bounded simulation**: one frozen system prompt, one user mes
 - [`docs/TUTORIAL.md`](docs/TUTORIAL.md) — code-based walkthrough.
 - [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) — completed live demonstration and reviewer links.
 - [`docs/SUBMISSION.md`](docs/SUBMISSION.md) — copyable Portal handoff draft and public evidence links.
+- [`apps/backstop-web/public/portal-logo.png`](apps/backstop-web/public/portal-logo.png) — 512 × 512 PNG accepted by the current Portal Project logo field.
 - [`scripts/deploy_backstop.py`](scripts/deploy_backstop.py) and [`deploy/proof.json`](deploy/proof.json) — resumable deployment and verified source record.
 - [`scripts/demo_backstop.py`](scripts/demo_backstop.py) — resumable synthetic live regression demonstration.
 - [`deploy/browser-qa.json`](deploy/browser-qa.json) — public-frontend wallet transaction and immutable read-back.
@@ -64,7 +65,7 @@ corepack pnpm typecheck
 corepack pnpm build
 ```
 
-For the local frontend, copy `.env.example` to `.env.local` and run `corepack pnpm dev`. The example points to the verified Studionet contract. The [hosted no-wallet registry](https://demigodd00.github.io/backstop-studionet/?suite=bs-1#registry) was checked in a logged-out browser: it displayed revision 2, two reproduced attacks, three candidates, and active `cand-3` directly from finalized state. The [Pages deployment](https://github.com/Demigodd00/backstop-studionet/actions/runs/39567862372) succeeded. Wallet writes are journaled locally and checked for **finalized successful execution** before the UI reports success; a user-approved browser `create_suite` write passed this check and displayed the new `bs-2` draft. Other write buttons have not each been tested through the browser wallet. Never put a private key in the frontend or repository. Run `python -m pip install -r requirements-deploy.txt` and `python scripts/verify_backstop.py` to recheck the public chain proof without a wallet key.
+For the local frontend, copy `.env.example` to `.env.local` and run `corepack pnpm dev`. The example points to the verified Studionet contract. The [hosted no-wallet registry](https://demigodd00.github.io/backstop-studionet/?suite=bs-1#registry) was checked in a logged-out browser: it displayed revision 2, two reproduced attacks, three candidates, and active `cand-3` directly from finalized state. The [Pages workflow](https://github.com/Demigodd00/backstop-studionet/actions/workflows/pages.yml) publishes this view. Wallet writes are journaled locally and checked for **finalized successful execution** before the UI reports success; a user-approved browser `create_suite` write passed this check and displayed the new `bs-2` draft. Other write buttons have not each been tested through the browser wallet. Never put a private key in the frontend or repository. Run `python -m pip install -r requirements-deploy.txt` and `python scripts/verify_backstop.py` to recheck the public chain proof without a wallet key.
 
 ## Limits and evidence status
 

@@ -32,7 +32,7 @@ function statusTone(status: string): "good" | "bad" | "warn" | "muted" {
 }
 
 function TxLink({ hash }: { hash: string }) {
-  return <a href={`${EXPLORER}/tx/${hash}`} target="_blank" rel="noreferrer">View finalized transaction ↗</a>;
+  return <a href={`${EXPLORER}/tx/${hash}`} target="_blank" rel="noreferrer">View transaction ↗</a>;
 }
 
 export default function BackstopApp() {
@@ -74,6 +74,7 @@ export default function BackstopApp() {
       setList(page.items);
       setListFailed(false);
       setSelectedId((current) => current || new URLSearchParams(window.location.search).get("suite") || page.items[0]?.id || "");
+      return page;
     } catch (error) { setListFailed(true); throw error; }
     finally { setListLoading(false); }
   }, []);
@@ -95,16 +96,20 @@ export default function BackstopApp() {
       const url = new URL(window.location.href);
       url.searchParams.set("suite", id);
       window.history.replaceState(null, "", url.toString());
-    } catch {
+    } catch (error) {
       if (sequence !== requestSeq.current) return;
       setSuite(null); setAttacks([]); setCandidates([]); setActive(null);
       setSelectedFailed(true);
-      setNotice("Studionet could not return finalized suite details. Try Refresh finalized state.");
+      throw error;
     } finally { if (sequence === requestSeq.current) setLoading(false); }
   }, []);
 
   useEffect(() => { refreshList().catch(() => setNotice("Studionet could not return the suite list. Try Refresh finalized state.")); }, [refreshList]);
-  useEffect(() => { refreshSelected(selectedId).catch(() => {}); }, [selectedId, refreshSelected]);
+  useEffect(() => { refreshSelected(selectedId).catch(() => setNotice((current) => current.includes("registry could not refresh")
+    ? current
+    : current.includes("finalized successfully")
+      ? `${current} The registry could not refresh; use Refresh finalized state or view the transaction.`
+      : "Studionet could not return finalized suite details. Try Refresh finalized state.")); }, [selectedId, refreshSelected]);
 
   async function connect() {
     try {
@@ -126,11 +131,15 @@ export default function BackstopApp() {
         setLastHash(submitted); setNotice(`${method} submitted. Waiting for finality…`);
       });
       setLastHash(hash); setNotice(`${method} finalized successfully.`);
-      await refreshList();
-      if (method === "create_suite") {
-        const page = await listSuites();
-        if (page.items.length) setSelectedId(page.items[page.items.length - 1].id);
-      } else await refreshSelected(selectedId);
+      try {
+        const page = await refreshList();
+        if (method === "create_suite") {
+          const newest = page?.items.at(-1);
+          if (newest) setSelectedId(newest.id);
+        } else await refreshSelected(selectedId);
+      } catch {
+        setNotice(`${method} finalized successfully, but the registry could not refresh. Use Refresh finalized state or view the transaction.`);
+      }
     } catch (error) { setNotice(error instanceof Error ? error.message : `${method} failed.`); }
     finally { setBusy(false); }
   }
@@ -142,7 +151,10 @@ export default function BackstopApp() {
       const result = await reconcilePending(wallet);
       setNotice(result.message);
       if (result.hash) setLastHash(result.hash);
-      if (result.done) { await refreshList(); await refreshSelected(selectedId); }
+      if (result.done) {
+        try { await refreshList(); await refreshSelected(selectedId); }
+        catch { setNotice(`${result.message} The registry could not refresh; use Refresh finalized state or view the transaction.`); }
+      }
     } catch (error) { setNotice(error instanceof Error ? error.message : "Could not check the saved transaction."); }
     finally { setBusy(false); }
   }
