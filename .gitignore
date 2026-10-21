@@ -9,5 +9,7 @@ __pycache__/
 *.tsbuildinfo
 *.log
 .chrome-preview*/
+.chrome-live-*/
 backstop-preview.png
 backstop-mobile.png
+backstop-live.png

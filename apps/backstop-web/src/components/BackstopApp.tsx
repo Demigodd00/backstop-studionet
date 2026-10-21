@@ -150,7 +150,7 @@ export default function BackstopApp() {
 
     <section className="hero shell" id="top">
       <div className="hero-copy"><p className="eyebrow"><span className="eyebrow-line" /> THE ON-CHAIN REGRESSION STANDARD</p>
-        <h1>A fix should survive<br /><em>its own history.</em></h1>
+        <h1>A fix should survive<br /> <em>its own history.</em></h1>
         <p className="hero-intro">Every reproduced agent exploit becomes a test that later policy versions must pass. GenLayer validators replay the cases, while the contract certifies only repairs that still complete legitimate work.</p>
         <div className="hero-actions"><a className="button button-primary" href="#registry">Explore the registry <span>↗</span></a><a className="button button-text" href="#mechanism">How it works <span>↓</span></a></div>
       </div>
