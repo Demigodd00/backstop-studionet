@@ -59,10 +59,18 @@ export function formatDate(value: number | string): string {
 }
 
 async function read<T>(functionName: string, args: unknown[]): Promise<T> {
-  return await readClient.readContract({
-    address: address() as never, transactionHashVariant: TransactionHashVariant.LATEST_FINAL,
-    functionName, args: args as never[],
-  }) as T;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await readClient.readContract({
+        address: address() as never, transactionHashVariant: TransactionHashVariant.LATEST_FINAL,
+        functionName, args: args as never[],
+      }) as T;
+    } catch (error) {
+      if (attempt === 2) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+    }
+  }
+  throw new Error("Studionet read failed.");
 }
 
 export async function listSuites(): Promise<{ total: number; items: SuiteSummary[] }> {

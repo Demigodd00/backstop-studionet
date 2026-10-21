@@ -34,12 +34,15 @@ export default function BackstopApp() {
   const [notice, setNotice] = useState("");
   const [lastHash, setLastHash] = useState("");
   const [list, setList] = useState<SuiteSummary[]>([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [listFailed, setListFailed] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [suite, setSuite] = useState<Suite | null>(null);
   const [attacks, setAttacks] = useState<Attack[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [active, setActive] = useState<ActivePolicy | null>(null);
   const [loading, setLoading] = useState(false);
+  const [selectedFailed, setSelectedFailed] = useState(false);
   const [name, setName] = useState("Release-note agent");
   const [basePrompt, setBasePrompt] = useState(DEMO_PROMPT);
   const [tools, setTools] = useState("DRAFT");
@@ -57,16 +60,22 @@ export default function BackstopApp() {
   }
 
   const refreshList = useCallback(async () => {
-    if (!CONTRACT_READY) return;
-    const page = await listSuites();
-    setList(page.items);
-    setSelectedId((current) => current || new URLSearchParams(window.location.search).get("suite") || page.items[0]?.id || "");
+    if (!CONTRACT_READY) { setListLoading(false); return; }
+    setListLoading(true);
+    try {
+      const page = await listSuites();
+      setList(page.items);
+      setListFailed(false);
+      setSelectedId((current) => current || new URLSearchParams(window.location.search).get("suite") || page.items[0]?.id || "");
+    } catch (error) { setListFailed(true); throw error; }
+    finally { setListLoading(false); }
   }, []);
 
   const refreshSelected = useCallback(async (id: string) => {
     if (!CONTRACT_READY || !id) { setSuite(null); setAttacks([]); setCandidates([]); setActive(null); return; }
     const sequence = ++requestSeq.current;
     setLoading(true);
+    setSelectedFailed(false);
     try {
       const [record, policy] = await Promise.all([getSuite(id), getActivePolicy(id)]);
       const [attackRecords, candidateRecords] = await Promise.all([
@@ -75,17 +84,19 @@ export default function BackstopApp() {
       ]);
       if (sequence !== requestSeq.current) return;
       setSuite(record); setActive(policy); setAttacks(attackRecords); setCandidates(candidateRecords);
+      setSelectedFailed(false);
       const url = new URL(window.location.href);
       url.searchParams.set("suite", id);
       window.history.replaceState(null, "", url.toString());
-    } catch (error) {
+    } catch {
       if (sequence !== requestSeq.current) return;
       setSuite(null); setAttacks([]); setCandidates([]); setActive(null);
-      setNotice(error instanceof Error ? error.message : "Could not load the suite.");
+      setSelectedFailed(true);
+      setNotice("Studionet could not return finalized suite details. Try Refresh finalized state.");
     } finally { if (sequence === requestSeq.current) setLoading(false); }
   }, []);
 
-  useEffect(() => { refreshList().catch((error) => setNotice(error instanceof Error ? error.message : "Could not load suites.")); }, [refreshList]);
+  useEffect(() => { refreshList().catch(() => setNotice("Studionet could not return the suite list. Try Refresh finalized state.")); }, [refreshList]);
   useEffect(() => { refreshSelected(selectedId).catch(() => {}); }, [selectedId, refreshSelected]);
 
   async function connect() {
@@ -177,17 +188,17 @@ export default function BackstopApp() {
     </section>
 
     <section className="registry shell" id="registry">
-      <div className="section-heading registry-heading"><div><p className="eyebrow">PUBLIC REGISTRY</p><h2>Inspect the evidence trail.</h2></div><button className="button button-outline" onClick={() => { refreshList().then(() => refreshSelected(selectedId)).catch((error) => setNotice(String(error))); }} disabled={!CONTRACT_READY || loading}>↻ Refresh finalized state</button></div>
+      <div className="section-heading registry-heading"><div><p className="eyebrow">PUBLIC REGISTRY</p><h2>Inspect the evidence trail.</h2></div><button className="button button-outline" onClick={() => { setNotice(""); refreshList().then(() => refreshSelected(selectedId)).catch(() => setNotice("Studionet could not refresh the suite list. Please retry.")); }} disabled={!CONTRACT_READY || loading}>↻ Refresh finalized state</button></div>
       {notice && <div className="notice" role="status"><span>{notice}</span>{lastHash && <TxLink hash={lastHash} />}{wallet && pendingSaved && <button onClick={checkPending} disabled={busy}>Check saved transaction</button>}</div>}
       <div className="registry-grid">
         <aside className="suite-list"><div className="panel-head"><span>SUITES</span><span>{list.length.toString().padStart(2, "0")}</span></div>
           {!CONTRACT_READY && <div className="empty-list">The contract has not been deployed. The local application and contract tests are available in the repository.</div>}
-          {CONTRACT_READY && !list.length && <div className="empty-list">No finalized suites yet. Connect a wallet to create the first one.</div>}
+          {CONTRACT_READY && !list.length && <div className="empty-list">{listLoading ? "Loading finalized suites…" : listFailed ? "Studionet could not load the suite list. Use Refresh finalized state to retry." : "No finalized suites yet. Connect a wallet to create the first one."}</div>}
           {list.map((item) => <button key={item.id} className={`suite-choice ${selectedId === item.id ? "selected" : ""}`} onClick={() => setSelectedId(item.id)}><span className="suite-choice-top"><strong>{item.name}</strong><span>↗</span></span><span className="suite-choice-meta"><Badge tone={statusTone(item.status)}>{item.status}</Badge><small>REV {item.revision} · {item.regressions} CASES</small></span></button>)}
         </aside>
         <div className="suite-detail">
           {loading && <div className="empty-detail">Loading finalized contract state…</div>}
-          {!loading && !suite && <div className="empty-detail"><span className="empty-glyph">⌁</span><h3>Choose a suite to inspect</h3><p>Each verdict, revision, and active policy shown here comes from finalized Studionet contract state.</p></div>}
+          {!loading && !suite && <div className="empty-detail"><span className="empty-glyph">⌁</span><h3>{selectedFailed ? "Suite details temporarily unavailable" : "Choose a suite to inspect"}</h3><p>{selectedFailed ? "Use Refresh finalized state to retry the Studionet read." : "Each verdict, revision, and active policy shown here comes from finalized Studionet contract state."}</p></div>}
           {!loading && suite && <>
             <div className="detail-header"><div><p className="eyebrow">{suite.id} / REVISION {suite.revision}</p><h3>{suite.name}</h3><p>Built by <span className="mono">{short(suite.builder)}</span></p></div><Badge tone={statusTone(suite.status)}>{suite.status}</Badge></div>
             <div className="metric-grid"><div><span>REGRESSIONS</span><strong>{suite.regression_ids.length}</strong></div><div><span>CANDIDATES</span><strong>{suite.candidate_ids.length}</strong></div><div><span>ATTACK DEADLINE</span><strong className="date-metric">{formatDate(suite.attack_deadline)}</strong></div></div>
