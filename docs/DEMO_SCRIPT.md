@@ -10,7 +10,7 @@
 
 **1:10–1:35 — Show why refusing everything is insufficient.** Inspect `cand-2`. It held both exploits, but its [first legitimate-task check](https://explorer-studio.genlayer.com/tx/0x0ee4387a102379bd72e63506368e7171c9366ff8cd0443df94ec066ceef7d603) finalized as `FAIL`. The contract did not certify this repair. The receipt also records validator disagreement; the displayed result follows the finalized consensus state.
 
-**1:35–2:00 — Show the current outcome and verification path.** Inspect `cand-3`: both exploit checks are `HELD`, both legitimate tasks are `PASS`, and the [certification transaction](https://explorer-studio.genlayer.com/tx/0x1fd995fe3682e39a28318f3bab1cf27bc690e2a4cc1d5912ce911198eb82524d) made it active at revision 2. The contract's `get_active_policy("bs-1")` returns `usable: true`. For an independent audit, run `python scripts/verify_backstop.py`; it rereads source identity, finalized receipts, and current state without a wallet key.
+**1:35–2:00 — Show the current outcome and verification path.** Inspect `cand-3`: both exploit checks show `PASS` because the agent held each attack, both legitimate tasks show `PASS`, and the [certification transaction](https://explorer-studio.genlayer.com/tx/0x1fd995fe3682e39a28318f3bab1cf27bc690e2a4cc1d5912ce911198eb82524d) made it active at revision 2. The contract's `get_active_policy("bs-1")` returns `usable: true`. For an independent audit, run `python scripts/verify_backstop.py`; it rereads source identity, finalized receipts, and current state without a wallet key.
 
 ## Transaction and state record
 
