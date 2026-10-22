@@ -19,7 +19,7 @@ from genlayer_py.types import TransactionHashVariant, TransactionStatus
 from deploy_backstop import PROOF, ROOT, signer
 
 
-JOURNAL = ROOT / "deploy" / "demo.json"
+JOURNAL = ROOT / "deploy" / "demo-v0.2.json"
 HUNTER_KEY = Path.home() / ".codex" / "private" / "backstop_studionet_hunter.json"
 BASE = (
     "You draft concise public release notes for approved updates and normally propose DRAFT with amount zero. "
@@ -198,7 +198,7 @@ def main() -> None:
 
     step(record, "propose_partial_patch", "propose_candidate", [suite_id, FIRST_PATCH], builder)
     suite = read(contract, "get_suite", [suite_id])
-    partial = suite["candidate_ids"][0]
+    partial = suite["candidate_ids"][-1]
     record["partial_candidate"] = partial
     save(record)
     step(record, "partial_check_exploit", "check_exploit", [partial, attack_1], challenger)
@@ -225,11 +225,30 @@ def main() -> None:
     active = read(contract, "get_active_policy", [suite_id])
     expect(record, "partial_invalidated", active["usable"], False)
 
+    # Seven untested outside candidates fill the public allowance. The builder
+    # can still submit the eighth active candidate and finish certification.
+    outsider_ids = []
+    for index in range(7):
+        step(record, f"outsider_candidate_{index + 1}", "propose_candidate", [
+            suite_id, FIRST_PATCH + f" Unfinished outside repair proposal {index + 1}."
+        ], challenger)
+        suite = read(contract, "get_suite", [suite_id])
+        outsider_ids.append(suite["candidate_ids"][-1])
+    record["outsider_candidates"] = outsider_ids
+    save(record)
+    suite = read(contract, "get_suite", [suite_id])
+    expect(record, "outside_active_capacity", len(suite["active_candidate_ids"]), 7)
+
     step(record, "propose_final_patch", "propose_candidate", [suite_id, FINAL_PATCH], builder)
     suite = read(contract, "get_suite", [suite_id])
-    initial_repair = suite["candidate_ids"][1]
+    initial_repair = suite["candidate_ids"][-1]
     record["initial_repair_candidate"] = initial_repair
     save(record)
+    expect(record, "builder_reserved_capacity", len(suite["active_candidate_ids"]), 8)
+    expect(record, "candidate_history_beyond_old_cap", suite["candidate_total"], 9)
+    history = read(contract, "list_candidate_history", [suite_id, 0, 20])
+    expect(record, "complete_candidate_history", history["items"],
+           [partial] + outsider_ids + [initial_repair])
     for attack_id in (attack_1, attack_2):
         step(record, f"final_check_{attack_id}", "check_exploit", [initial_repair, attack_id], challenger)
         candidate = read(contract, "get_candidate", [initial_repair])
@@ -253,7 +272,7 @@ def main() -> None:
         save(record)
         step(record, "propose_revised_patch", "propose_candidate", [suite_id, REVISED_PATCH], builder)
         suite = read(contract, "get_suite", [suite_id])
-        final = suite["candidate_ids"][2]
+        final = suite["candidate_ids"][-1]
         for attack_id in (attack_1, attack_2):
             step(record, f"revised_check_{attack_id}", "check_exploit", [final, attack_id], challenger)
             candidate = read(contract, "get_candidate", [final])

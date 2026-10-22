@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 MAX_SUITES = 100
 MAX_ATTACKS = 12
 MAX_REGRESSIONS = 4
@@ -160,6 +160,8 @@ class Backstop(gl.Contract):
     attacks: TreeMap[str, str]
     candidates: TreeMap[str, str]
     attack_digests: TreeMap[str, str]
+    attack_history: TreeMap[str, str]
+    candidate_history: TreeMap[str, str]
     suite_count: u256
     attack_count: u256
     candidate_count: u256
@@ -184,6 +186,35 @@ class Backstop(gl.Contract):
             _fail("candidate not found")
         return json.loads(self.candidates[candidate_id])
 
+    def _reap_attacks(self, suite: dict) -> None:
+        pending = []
+        for attack_id in suite["pending_attack_ids"]:
+            attack = self._attack(attack_id)
+            if attack["status"] == "PENDING" and _now() >= attack["expires_at"]:
+                attack["status"] = "EXPIRED"
+                attack["judged_at"] = _now()
+                self.attacks[attack_id] = _json(attack)
+                self.attack_digests[attack["digest_key"]] = ""
+            elif attack["status"] == "PENDING":
+                pending.append(attack_id)
+        suite["pending_attack_ids"] = pending
+
+    def _reap_candidates(self, suite: dict) -> None:
+        active = []
+        for candidate_id in suite["active_candidate_ids"]:
+            candidate = self._candidate(candidate_id)
+            if candidate["status"] != "TESTING":
+                continue
+            if candidate["revision"] != suite["revision"]:
+                candidate["status"] = "STALE"
+            elif _now() >= candidate["expires_at"]:
+                candidate["status"] = "EXPIRED"
+            else:
+                active.append(candidate_id)
+                continue
+            self.candidates[candidate_id] = _json(candidate)
+        suite["active_candidate_ids"] = active
+
     @gl.public.write
     def create_suite(self, name: str, base_prompt: str, allowed_tools_json: str,
                      max_amount: u256, golden_cases_json: str, challenge_duration_secs: u256) -> str:
@@ -205,7 +236,9 @@ class Backstop(gl.Contract):
             "goldens": goldens, "golden_validation": ["PENDING", "PENDING"],
             "status": "DRAFT", "created_at": _now(), "opened_at": 0, "attack_deadline": 0,
             "challenge_duration_secs": int(challenge_duration_secs), "revision": 0,
-            "attack_ids": [], "regression_ids": [], "candidate_ids": [],
+            "attack_ids": [], "pending_attack_ids": [], "attack_total": 0,
+            "regression_ids": [], "candidate_ids": [], "active_candidate_ids": [],
+            "candidate_total": 0,
             "active_candidate_id": "", "certified_revision": 0,
             "terms_digest": _digest(_json({"prompt": base_prompt, "tools": tools,
                                            "max_amount": int(max_amount), "goldens": goldens})),
@@ -263,29 +296,36 @@ class Backstop(gl.Contract):
         suite = self._suite(suite_id)
         if suite["status"] not in ("OPEN", "CERTIFIED", "EXPOSED") or _now() >= suite["attack_deadline"]:
             _fail("attack window is closed")
-        if len(suite["attack_ids"]) >= MAX_ATTACKS or len(suite["regression_ids"]) >= MAX_REGRESSIONS:
+        self._reap_attacks(suite)
+        if len(suite["regression_ids"]) + len(suite["pending_attack_ids"]) >= MAX_REGRESSIONS:
             _fail("attack capacity reached")
         message = _text(message, 15, 700, "attack message")
         digest = _digest(message)
-        digest_key = suite_id + ":" + digest
-        if digest_key in self.attack_digests:
-            _fail("duplicate attack message")
-        self.attack_count += u256(1)
-        attack_id = "atk-" + str(self.attack_count)
         prompt = suite["base_prompt"]
         if suite["active_candidate_id"]:
             prompt = self._candidate(suite["active_candidate_id"])["prompt"]
+        prompt_digest = _digest(prompt)
+        digest_key = suite_id + ":" + prompt_digest + ":" + digest
+        if digest_key in self.attack_digests and self.attack_digests[digest_key]:
+            _fail("duplicate attack message")
+        self.attack_count += u256(1)
+        attack_id = "atk-" + str(self.attack_count)
         record = {
             "id": attack_id, "suite_id": suite_id, "hunter": str(gl.message.sender_address),
-            "message": message, "message_digest": digest, "target_prompt": prompt,
-            "target_prompt_digest": _digest(prompt), "status": "PENDING",
+            "message": message, "message_digest": digest, "digest_key": digest_key,
+            "target_prompt": prompt, "target_prompt_digest": prompt_digest, "status": "PENDING",
             "submitted_at": _now(), "expires_at": min(_now() + ATTACK_GRACE_SECS,
                                                        suite["attack_deadline"] + ATTACK_GRACE_SECS),
             "judged_at": 0,
         }
         self.attacks[attack_id] = _json(record)
         self.attack_digests[digest_key] = attack_id
+        suite["attack_total"] += 1
+        self.attack_history[suite_id + ":" + str(suite["attack_total"])] = attack_id
         suite["attack_ids"].append(attack_id)
+        if len(suite["attack_ids"]) > MAX_ATTACKS:
+            suite["attack_ids"].pop(0)
+        suite["pending_attack_ids"].append(attack_id)
         self.suites[suite_id] = _json(suite)
         return attack_id
 
@@ -322,27 +362,43 @@ class Backstop(gl.Contract):
         attack["status"] = result
         attack["judged_at"] = _now()
         self.attacks[attack_id] = _json(attack)
+        suite["pending_attack_ids"].remove(attack_id)
         if result == "BROKEN":
             suite["regression_ids"].append(attack_id)
             suite["revision"] += 1
             suite["status"] = "EXPOSED"
-            self.suites[suite["id"]] = _json(suite)
+            self._reap_candidates(suite)
+        else:
+            self.attack_digests[attack["digest_key"]] = ""
+        self.suites[suite["id"]] = _json(suite)
 
     @gl.public.write
     def expire_attack(self, attack_id: str) -> None:
         attack = self._attack(attack_id)
         if attack["status"] != "PENDING" or _now() < attack["expires_at"]:
             _fail("attack has not expired")
+        suite = self._suite(attack["suite_id"])
         attack["status"] = "EXPIRED"
         attack["judged_at"] = _now()
         self.attacks[attack_id] = _json(attack)
+        self.attack_digests[attack["digest_key"]] = ""
+        suite["pending_attack_ids"].remove(attack_id)
+        self.suites[suite["id"]] = _json(suite)
 
     @gl.public.write
     def propose_candidate(self, suite_id: str, prompt: str) -> str:
         suite = self._suite(suite_id)
-        if suite["status"] not in ("EXPOSED", "CERTIFIED") or not suite["regression_ids"]:
+        if suite["status"] != "EXPOSED" or not suite["regression_ids"]:
             _fail("suite needs a reproduced exploit")
-        if len(suite["candidate_ids"]) >= MAX_CANDIDATES:
+        self._reap_candidates(suite)
+        sender = str(gl.message.sender_address)
+        outsider_count = sum(
+            1 for candidate_id in suite["active_candidate_ids"]
+            if self._candidate(candidate_id)["author"].lower() != suite["builder"].lower()
+        )
+        if len(suite["active_candidate_ids"]) >= MAX_CANDIDATES or (
+            sender.lower() != suite["builder"].lower() and outsider_count >= MAX_CANDIDATES - 1
+        ):
             _fail("candidate capacity reached")
         prompt = _text(prompt, 80, 1800, "candidate prompt")
         if _digest(prompt) == _digest(suite["base_prompt"]):
@@ -350,7 +406,7 @@ class Backstop(gl.Contract):
         self.candidate_count += u256(1)
         candidate_id = "cand-" + str(self.candidate_count)
         record = {
-            "id": candidate_id, "suite_id": suite_id, "author": str(gl.message.sender_address),
+            "id": candidate_id, "suite_id": suite_id, "author": sender,
             "prompt": prompt, "prompt_digest": _digest(prompt), "revision": suite["revision"],
             "regression_ids": list(suite["regression_ids"]),
             "attack_checks": {attack_id: "PENDING" for attack_id in suite["regression_ids"]},
@@ -359,7 +415,12 @@ class Backstop(gl.Contract):
             "certified_at": 0,
         }
         self.candidates[candidate_id] = _json(record)
+        suite["candidate_total"] += 1
+        self.candidate_history[suite_id + ":" + str(suite["candidate_total"])] = candidate_id
         suite["candidate_ids"].append(candidate_id)
+        if len(suite["candidate_ids"]) > MAX_CANDIDATES:
+            suite["candidate_ids"].pop(0)
+        suite["active_candidate_ids"].append(candidate_id)
         self.suites[suite_id] = _json(suite)
         return candidate_id
 
@@ -367,10 +428,10 @@ class Backstop(gl.Contract):
     def check_exploit(self, candidate_id: str, attack_id: str) -> None:
         candidate = self._candidate(candidate_id)
         suite = self._suite(candidate["suite_id"])
-        if candidate["status"] != "TESTING" or _now() >= candidate["expires_at"]:
-            _fail("candidate is not open for checking")
         if candidate["revision"] != suite["revision"]:
             _fail("candidate is stale after a new exploit")
+        if candidate["status"] != "TESTING" or _now() >= candidate["expires_at"]:
+            _fail("candidate is not open for checking")
         if attack_id not in candidate["attack_checks"] or candidate["attack_checks"][attack_id] != "PENDING":
             _fail("exploit case is not pending")
         attack = self._attack(attack_id)
@@ -397,6 +458,10 @@ class Backstop(gl.Contract):
         if result not in ("HELD", "BROKEN", "UNCLEAR"):
             raise gl.vm.UserError("[LLM_ERROR] invalid exploit result")
         candidate["attack_checks"][attack_id] = "PASS" if result == "HELD" else "FAIL"
+        if result != "HELD":
+            candidate["status"] = "FAILED"
+            suite["active_candidate_ids"].remove(candidate_id)
+            self.suites[suite["id"]] = _json(suite)
         self.candidates[candidate_id] = _json(candidate)
 
     @gl.public.write
@@ -404,10 +469,10 @@ class Backstop(gl.Contract):
         candidate = self._candidate(candidate_id)
         suite = self._suite(candidate["suite_id"])
         index = int(case_index)
-        if candidate["status"] != "TESTING" or _now() >= candidate["expires_at"]:
-            _fail("candidate is not open for checking")
         if candidate["revision"] != suite["revision"]:
             _fail("candidate is stale after a new exploit")
+        if candidate["status"] != "TESTING" or _now() >= candidate["expires_at"]:
+            _fail("candidate is not open for checking")
         if not 0 <= index < 2 or candidate["golden_checks"][index] != "PENDING":
             _fail("legitimate case is not pending")
         prompt = candidate["prompt"]
@@ -436,6 +501,10 @@ class Backstop(gl.Contract):
         if result not in ("PASS", "FAIL"):
             raise gl.vm.UserError("[LLM_ERROR] invalid legitimate-task result")
         candidate["golden_checks"][index] = result
+        if result != "PASS":
+            candidate["status"] = "FAILED"
+            suite["active_candidate_ids"].remove(candidate_id)
+            self.suites[suite["id"]] = _json(suite)
         self.candidates[candidate_id] = _json(candidate)
 
     @gl.public.write
@@ -445,15 +514,18 @@ class Backstop(gl.Contract):
             _fail("candidate has not expired")
         candidate["status"] = "EXPIRED"
         self.candidates[candidate_id] = _json(candidate)
+        suite = self._suite(candidate["suite_id"])
+        suite["active_candidate_ids"].remove(candidate_id)
+        self.suites[suite["id"]] = _json(suite)
 
     @gl.public.write
     def certify_candidate(self, candidate_id: str) -> None:
         candidate = self._candidate(candidate_id)
         suite = self._suite(candidate["suite_id"])
-        if candidate["status"] != "TESTING" or _now() >= candidate["expires_at"]:
-            _fail("candidate cannot be certified")
         if candidate["revision"] != suite["revision"]:
             _fail("candidate is stale after a new exploit")
+        if candidate["status"] != "TESTING" or _now() >= candidate["expires_at"]:
+            _fail("candidate cannot be certified")
         if suite["status"] == "CERTIFIED" and suite["certified_revision"] == suite["revision"]:
             _fail("current suite revision already has a certified candidate")
         if not candidate["attack_checks"] or any(value != "PASS" for value in candidate["attack_checks"].values()):
@@ -466,6 +538,7 @@ class Backstop(gl.Contract):
         suite["status"] = "CERTIFIED"
         suite["active_candidate_id"] = candidate_id
         suite["certified_revision"] = suite["revision"]
+        suite["active_candidate_ids"].remove(candidate_id)
         self.suites[suite["id"]] = _json(suite)
 
     @gl.public.view
@@ -479,6 +552,32 @@ class Backstop(gl.Contract):
     @gl.public.view
     def get_candidate(self, candidate_id: str) -> dict:
         return self._candidate(candidate_id)
+
+    @gl.public.view
+    def list_attack_history(self, suite_id: str, offset: u256, count: u256) -> dict:
+        suite = self._suite(suite_id)
+        start = int(offset)
+        limit = int(count)
+        if start < 0 or not 1 <= limit <= MAX_PAGE:
+            _fail("invalid attack page")
+        total = suite["attack_total"]
+        items = []
+        for index in range(start, min(total, start + limit)):
+            items.append(self.attack_history[suite_id + ":" + str(index + 1)])
+        return {"total": total, "items": items}
+
+    @gl.public.view
+    def list_candidate_history(self, suite_id: str, offset: u256, count: u256) -> dict:
+        suite = self._suite(suite_id)
+        start = int(offset)
+        limit = int(count)
+        if start < 0 or not 1 <= limit <= MAX_PAGE:
+            _fail("invalid candidate page")
+        total = suite["candidate_total"]
+        items = []
+        for index in range(start, min(total, start + limit)):
+            items.append(self.candidate_history[suite_id + ":" + str(index + 1)])
+        return {"total": total, "items": items}
 
     @gl.public.view
     def get_active_policy(self, suite_id: str) -> dict:
@@ -506,6 +605,8 @@ class Backstop(gl.Contract):
 
     @gl.public.view
     def get_config(self) -> dict:
-        return {"version": VERSION, "max_suites": MAX_SUITES, "max_attacks": MAX_ATTACKS,
-                "max_regressions": MAX_REGRESSIONS, "max_candidates": MAX_CANDIDATES,
+        return {"version": VERSION, "max_suites": MAX_SUITES, "recent_attack_ids": MAX_ATTACKS,
+                "max_regressions": MAX_REGRESSIONS, "max_pending_attacks": MAX_REGRESSIONS,
+                "recent_candidate_ids": MAX_CANDIDATES, "max_active_candidates": MAX_CANDIDATES,
+                "reserved_builder_candidates": 1,
                 "candidate_ttl_secs": CANDIDATE_TTL_SECS, "attack_grace_secs": ATTACK_GRACE_SECS}

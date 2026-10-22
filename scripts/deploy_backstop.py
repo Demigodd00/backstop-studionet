@@ -24,7 +24,7 @@ from genlayer_py.types import TransactionHashVariant, TransactionStatus
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "contracts" / "backstop.py"
-PROOF = ROOT / "deploy" / "proof.json"
+PROOF = ROOT / "deploy" / "proof-v0.2.json"
 KEY = Path.home() / ".codex" / "private" / "backstop_studionet_deployer.json"
 
 
@@ -60,8 +60,9 @@ def source_from_pushed_commit() -> tuple[str, bytes, str]:
     if git("status", "--porcelain", "--untracked-files=no"):
         raise RuntimeError("tracked source has local edits; commit and push first")
     commit = git("rev-parse", "HEAD")
-    if git("rev-parse", "origin/main") != commit:
-        raise RuntimeError("local HEAD differs from origin/main; push first")
+    branch = git("branch", "--show-current")
+    if not branch or git("rev-parse", "origin/" + branch) != commit:
+        raise RuntimeError("local HEAD differs from its pushed origin branch; push first")
     source = SOURCE.read_bytes()
     committed = subprocess.check_output(["git", "show", "HEAD:contracts/backstop.py"], cwd=ROOT)
     if source.replace(b"\r\n", b"\n") != committed:
@@ -101,7 +102,7 @@ def verify_receipt(client, record: dict, account) -> None:
         address=address, function_name="get_config", args=[], account=account,
         transaction_hash_variant=TransactionHashVariant.LATEST_FINAL,
     )
-    if not isinstance(config, dict) or config.get("version") != "0.1.0" or config.get("max_regressions") != 4:
+    if not isinstance(config, dict) or config.get("version") != "0.2.0" or config.get("max_regressions") != 4 or config.get("max_active_candidates") != 8:
         raise RuntimeError("deployed configuration differs from BACKSTOP source")
     record.update(address=address, config=config, deployed_source_verified=True, phase="verified")
     save(record)

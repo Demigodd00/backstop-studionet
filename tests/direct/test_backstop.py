@@ -66,11 +66,11 @@ def golden_judge(vm, status="PASS"):
     vm.mock_llm(r".*BACKSTOP legitimate-task judge.*", json.dumps({"status": status}))
 
 
-def opened(vm, deploy, builder):
+def opened(vm, deploy, builder, duration=3600):
     contract = deploy("contracts/backstop.py")
     vm.sender = builder
     suite_id = contract.create_suite(
-        "Release-note agent", BASE, json.dumps(["DRAFT"]), 0, json.dumps(GOLDENS), 3600,
+        "Release-note agent", BASE, json.dumps(["DRAFT"]), 0, json.dumps(GOLDENS), duration,
     )
     rubric(vm)
     contract.validate_golden(suite_id, 0)
@@ -119,7 +119,9 @@ def test_exploit_becomes_regression_and_refusal_patch_cannot_certify(
     candidate = contract.get_candidate(candidate_id)
     assert candidate["attack_checks"][attack_id] == "PASS"
     assert candidate["golden_checks"][0] == "FAIL"
-    with pytest.raises(Exception, match="both legitimate tasks must pass"):
+    assert candidate["status"] == "FAILED"
+    assert contract.get_suite(suite_id)["active_candidate_ids"] == []
+    with pytest.raises(Exception, match="candidate cannot be certified"):
         contract.certify_candidate(candidate_id)
     assert contract.get_active_policy(suite_id)["usable"] is False
 
@@ -215,3 +217,85 @@ def test_permissions_replay_and_expiry(direct_vm, direct_deploy, direct_alice, d
     warp(direct_vm, contract.get_suite(suite_id)["attack_deadline"])
     with pytest.raises(Exception, match="window is closed"):
         contract.submit_attack(suite_id, SECOND_ATTACK)
+
+
+def test_attack_slots_recover_after_rejected_and_expired_attempts(
+    direct_vm, direct_deploy, direct_alice, direct_bob,
+):
+    contract, suite_id = opened(direct_vm, direct_deploy, direct_alice, 4 * 86400)
+    direct_vm.sender = direct_bob
+    attempts = [contract.submit_attack(suite_id, f"Unproductive adversarial probe number {i}")
+                for i in range(4)]
+    with pytest.raises(Exception, match="attack capacity reached"):
+        contract.submit_attack(suite_id, "A genuine later exploit must still have capacity")
+    for attack_id in attempts[:2]:
+        direct_vm.clear_mocks()
+        agent(direct_vm)
+        contract.judge_attack(attack_id)
+        assert contract.get_attack(attack_id)["status"] == "HELD"
+    assert len(contract.get_suite(suite_id)["pending_attack_ids"]) == 2
+    retry = contract.submit_attack(suite_id, "Unproductive adversarial probe number 0")
+    assert retry != attempts[0]
+    expiry = contract.get_attack(attempts[2])["expires_at"]
+    warp(direct_vm, expiry)
+    genuine = contract.submit_attack(suite_id, ATTACK)
+    assert contract.get_attack(attempts[2])["status"] == "EXPIRED"
+    assert contract.get_attack(attempts[3])["status"] == "EXPIRED"
+    assert contract.get_attack(retry)["status"] == "EXPIRED"
+    direct_vm.clear_mocks()
+    agent(direct_vm, tool="PUBLISH")
+    contract.judge_attack(genuine)
+    assert contract.get_suite(suite_id)["regression_ids"] == [genuine]
+    later = []
+    for index in range(8):
+        attack_id = contract.submit_attack(suite_id, f"Another non-break probe {index} after recovery")
+        direct_vm.clear_mocks()
+        agent(direct_vm)
+        contract.judge_attack(attack_id)
+        later.append(attack_id)
+    history = contract.list_attack_history(suite_id, 0, 20)
+    assert history == {"total": 14, "items": attempts + [retry, genuine] + later}
+    assert len(contract.get_suite(suite_id)["attack_ids"]) == 12
+
+
+def test_candidate_reservation_failure_expiry_and_certification_recovery(
+    direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie,
+):
+    contract, suite_id = opened(direct_vm, direct_deploy, direct_alice, 7 * 86400)
+    first = broken(direct_vm, contract, suite_id, direct_bob)
+    direct_vm.sender = direct_charlie
+    outsiders = [contract.propose_candidate(suite_id, GOOD_PATCH + f" Variant {i}.")
+                for i in range(7)]
+    with pytest.raises(Exception, match="candidate capacity reached"):
+        contract.propose_candidate(suite_id, GOOD_PATCH + " Eighth outsider.")
+    direct_vm.sender = direct_alice
+    builder = contract.propose_candidate(suite_id, GOOD_PATCH + " Builder's reserved slot.")
+    assert len(contract.get_suite(suite_id)["active_candidate_ids"]) == 8
+
+    direct_vm.clear_mocks()
+    agent(direct_vm, tool="PUBLISH")
+    contract.check_exploit(outsiders[0], first)
+    assert contract.get_candidate(outsiders[0])["status"] == "FAILED"
+    direct_vm.sender = direct_charlie
+    replacement = contract.propose_candidate(suite_id, GOOD_PATCH + " Replacement after failed check.")
+    assert replacement not in outsiders
+
+    second = broken(direct_vm, contract, suite_id, direct_bob, SECOND_ATTACK)
+    for candidate_id in outsiders[1:] + [builder, replacement]:
+        assert contract.get_candidate(candidate_id)["status"] == "STALE"
+    assert contract.get_suite(suite_id)["active_candidate_ids"] == []
+
+    direct_vm.sender = direct_charlie
+    expiring = contract.propose_candidate(suite_id, GOOD_PATCH + " This entry will expire.")
+    warp(direct_vm, contract.get_candidate(expiring)["expires_at"])
+    recovered = contract.propose_candidate(suite_id, GOOD_PATCH + " Recovered and valid repair.")
+    assert contract.get_candidate(expiring)["status"] == "EXPIRED"
+    assert contract.get_suite(suite_id)["active_candidate_ids"] == [recovered]
+    pass_candidate(direct_vm, contract, recovered, [first, second])
+    contract.certify_candidate(recovered)
+    assert contract.get_active_policy(suite_id)["candidate_id"] == recovered
+    assert contract.get_suite(suite_id)["active_candidate_ids"] == []
+    history = contract.list_candidate_history(suite_id, 0, 20)
+    assert history["total"] == 11
+    assert history["items"] == outsiders + [builder, replacement, expiring, recovered]
+    assert len(contract.get_suite(suite_id)["candidate_ids"]) == 8

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CONTRACT_ADDRESS, CONTRACT_READY, EXPLORER, connectWallet, formatDate, getActivePolicy,
-  getAttack, getCandidate, getPending, getSuite, listSuites, reconcilePending, short, writeContract,
+  getAttack, getCandidate, getPending, getSuite, listAttackHistory, listCandidateHistory,
+  listSuites, reconcilePending, short, writeContract,
   type ActivePolicy, type Attack, type Candidate, type Provider, type Suite, type SuiteSummary, type WalletSession,
 } from "@/lib/backstop";
 
@@ -26,7 +27,7 @@ function Badge({ children, tone = "muted" }: { children: React.ReactNode; tone?:
 
 function statusTone(status: string): "good" | "bad" | "warn" | "muted" {
   if (["CERTIFIED", "PASS", "HELD", "VALID"].includes(status)) return "good";
-  if (["EXPOSED", "BROKEN", "FAIL", "INVALID"].includes(status)) return "bad";
+  if (["EXPOSED", "BROKEN", "FAIL", "FAILED", "INVALID"].includes(status)) return "bad";
   if (["PENDING", "TESTING", "DRAFT", "UNCLEAR"].includes(status)) return "warn";
   return "muted";
 }
@@ -47,6 +48,8 @@ export default function BackstopApp() {
   const [suite, setSuite] = useState<Suite | null>(null);
   const [attacks, setAttacks] = useState<Attack[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [attackHistoryLoaded, setAttackHistoryLoaded] = useState(0);
+  const [candidateHistoryLoaded, setCandidateHistoryLoaded] = useState(0);
   const [active, setActive] = useState<ActivePolicy | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedFailed, setSelectedFailed] = useState(false);
@@ -88,10 +91,12 @@ export default function BackstopApp() {
       const [record, policy] = await Promise.all([getSuite(id), getActivePolicy(id)]);
       const [attackRecords, candidateRecords] = await Promise.all([
         Promise.all(record.attack_ids.map((item) => getAttack(item))),
-        Promise.all(record.candidate_ids.map((item) => getCandidate(item))),
+        Promise.all([...new Set([...record.candidate_ids, ...record.active_candidate_ids])].map((item) => getCandidate(item))),
       ]);
       if (sequence !== requestSeq.current) return;
       setSuite(record); setActive(policy); setAttacks(attackRecords); setCandidates(candidateRecords);
+      setAttackHistoryLoaded(record.attack_ids.length);
+      setCandidateHistoryLoaded(record.candidate_ids.length);
       setSelectedFailed(false);
       const url = new URL(window.location.href);
       url.searchParams.set("suite", id);
@@ -103,6 +108,35 @@ export default function BackstopApp() {
       throw error;
     } finally { if (sequence === requestSeq.current) setLoading(false); }
   }, []);
+
+  async function loadOlder(kind: "attack" | "candidate") {
+    if (!suite || busy) return;
+    const currentId = suite.id;
+    const total = Number(kind === "attack" ? suite.attack_total : suite.candidate_total);
+    const loaded = kind === "attack" ? attackHistoryLoaded : candidateHistoryLoaded;
+    const older = total - loaded;
+    if (older <= 0) return;
+    const offset = Math.max(0, older - 20);
+    const count = older - offset;
+    setBusy(true);
+    try {
+      if (kind === "attack") {
+        const page = await listAttackHistory(currentId, offset, count);
+        if (Number(page.total) !== total) throw new Error("Attack history changed; refresh finalized state.");
+        const records = await Promise.all(page.items.map(getAttack));
+        if (selectedId === currentId) { setAttacks((items) => [...records, ...items]); setAttackHistoryLoaded(loaded + count); }
+      } else {
+        const page = await listCandidateHistory(currentId, offset, count);
+        if (Number(page.total) !== total) throw new Error("Candidate history changed; refresh finalized state.");
+        const records = await Promise.all(page.items.map(getCandidate));
+        if (selectedId === currentId) {
+          setCandidates((items) => [...records.filter((item) => !items.some((shown) => shown.id === item.id)), ...items]);
+          setCandidateHistoryLoaded(loaded + count);
+        }
+      }
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Could not load history."); }
+    finally { setBusy(false); }
+  }
 
   useEffect(() => { refreshList().catch(() => setNotice("Studionet could not return the suite list. Try Refresh finalized state.")); }, [refreshList]);
   useEffect(() => { refreshSelected(selectedId).catch(() => setNotice((current) => current.includes("registry could not refresh")
@@ -220,11 +254,11 @@ export default function BackstopApp() {
           {!loading && !suite && <div className="empty-detail"><span className="empty-glyph">⌁</span><h3>{selectedFailed ? "Suite details temporarily unavailable" : "Choose a suite to inspect"}</h3><p>{selectedFailed ? "Use Refresh finalized state to retry the Studionet read." : "Each verdict, revision, and active policy shown here comes from finalized Studionet contract state."}</p></div>}
           {!loading && suite && <>
             <div className="detail-header"><div><p className="eyebrow">{suite.id} / REVISION {suite.revision}</p><h3>{suite.name}</h3><p>Built by <span className="mono">{short(suite.builder)}</span></p></div><Badge tone={statusTone(suite.status)}>{suite.status}</Badge></div>
-            <div className="metric-grid"><div><span>REGRESSIONS</span><strong>{suite.regression_ids.length}</strong></div><div><span>CANDIDATES</span><strong>{suite.candidate_ids.length}</strong></div><div><span>ATTACK DEADLINE</span><strong className="date-metric">{formatDate(suite.attack_deadline)}</strong></div></div>
+            <div className="metric-grid"><div><span>REGRESSIONS</span><strong>{suite.regression_ids.length}</strong></div><div><span>CANDIDATES</span><strong>{suite.candidate_total}</strong></div><div><span>ATTACK DEADLINE</span><strong className="date-metric">{formatDate(suite.attack_deadline)}</strong></div></div>
             <div className="detail-block"><div className="block-title"><h4>Locked policy</h4><span className="mono">SHA-256 {short(suite.terms_digest)}</span></div><p className="policy-text">{suite.base_prompt}</p><div className="policy-meta"><span>ALLOWED TOOLS <b>{suite.allowed_tools.join(", ")}</b></span><span>AMOUNT CAP <b>{suite.max_amount}</b></span></div></div>
             <div className="detail-block"><div className="block-title"><h4>Legitimate tasks</h4><span>Both must pass every patch</span></div>{suite.goldens.map((item, index) => <div className="golden" key={index}><span className="case-number">G{index + 1}</span><div><strong>{item.task}</strong><p>{item.rubric}</p><small>EXPECTED ACTION: {item.expected_tool}</small></div><Badge tone={statusTone(suite.golden_validation[index])}>{suite.golden_validation[index]}</Badge></div>)}</div>
-            <div className="detail-block"><div className="block-title"><h4>Attacks</h4><span>{attacks.length} submitted · {suite.regression_ids.length} reproduced</span></div>{!attacks.length && <p className="subtle">No attacks have been submitted.</p>}{attacks.map((item) => <div className="case-row" key={item.id}><div className="case-top"><span className="mono">{item.id}</span><Badge tone={statusTone(item.status)}>{item.status}</Badge></div><p>{item.message}</p><small>SUBMITTED {formatDate(item.submitted_at)} · TARGET {short(item.target_prompt_digest)}</small>{item.status === "PENDING" && wallet && <div className="row-actions"><button disabled={busy} onClick={() => runWrite("judge_attack", [item.id])}>Judge attack</button><button disabled={busy} onClick={() => runWrite("expire_attack", [item.id])}>Expire if due</button></div>}</div>)}</div>
-            <div className="detail-block"><div className="block-title"><h4>Patch candidates</h4><span>{candidates.length} proposed</span></div>{!candidates.length && <p className="subtle">A candidate can be proposed after a reproduced exploit.</p>}{candidates.map((item) => <div className="candidate" key={item.id}><div className="case-top"><span className="mono">{item.id} · REV {item.revision}</span><Badge tone={statusTone(item.status)}>{item.status}</Badge></div><p>{item.prompt}</p><div className="check-grid"><div><small>EXPLOIT REGRESSIONS</small>{Object.entries(item.attack_checks).map(([id, value]) => <div key={id} className="check-item"><span>{id}</span><Badge tone={statusTone(value)}>{value}</Badge>{value === "PENDING" && wallet && <button disabled={busy} onClick={() => runWrite("check_exploit", [item.id, id])}>Check</button>}</div>)}</div><div><small>LEGITIMATE TASKS</small>{item.golden_checks.map((value, index) => <div key={index} className="check-item"><span>G{index + 1}</span><Badge tone={statusTone(value)}>{value}</Badge>{value === "PENDING" && wallet && <button disabled={busy} onClick={() => runWrite("check_golden", [item.id, index])}>Check</button>}</div>)}</div></div>{item.status === "TESTING" && wallet && <div className="row-actions"><button disabled={busy} onClick={() => runWrite("certify_candidate", [item.id])}>Certify if all pass</button><button disabled={busy} onClick={() => runWrite("expire_candidate", [item.id])}>Expire if due</button></div>}</div>)}</div>
+            <div className="detail-block"><div className="block-title"><h4>Attacks</h4><span>{suite.attack_total} submitted · {suite.pending_attack_ids.length} pending · {suite.regression_ids.length} reproduced</span></div>{!attacks.length && <p className="subtle">No attacks have been submitted.</p>}{attacks.map((item) => <div className="case-row" key={item.id}><div className="case-top"><span className="mono">{item.id}</span><Badge tone={statusTone(item.status)}>{item.status}</Badge></div><p>{item.message}</p><small>SUBMITTED {formatDate(item.submitted_at)} · TARGET {short(item.target_prompt_digest)}</small>{item.status === "PENDING" && wallet && <div className="row-actions"><button disabled={busy} onClick={() => runWrite("judge_attack", [item.id])}>Judge attack</button><button disabled={busy} onClick={() => runWrite("expire_attack", [item.id])}>Expire if due</button></div>}</div>)}{Number(suite.attack_total) > attackHistoryLoaded && <button disabled={busy} onClick={() => loadOlder("attack")}>Load older attacks</button>}</div>
+            <div className="detail-block"><div className="block-title"><h4>Patch candidates</h4><span>{suite.candidate_total} proposed · {suite.active_candidate_ids.length} testing</span></div>{!candidates.length && <p className="subtle">A candidate can be proposed after a reproduced exploit.</p>}{candidates.map((item) => <div className="candidate" key={item.id}><div className="case-top"><span className="mono">{item.id} · REV {item.revision}</span><Badge tone={statusTone(item.status)}>{item.status}</Badge></div><p>{item.prompt}</p><div className="check-grid"><div><small>EXPLOIT REGRESSIONS</small>{Object.entries(item.attack_checks).map(([id, value]) => <div key={id} className="check-item"><span>{id}</span><Badge tone={statusTone(value)}>{value}</Badge>{value === "PENDING" && wallet && <button disabled={busy} onClick={() => runWrite("check_exploit", [item.id, id])}>Check</button>}</div>)}</div><div><small>LEGITIMATE TASKS</small>{item.golden_checks.map((value, index) => <div key={index} className="check-item"><span>G{index + 1}</span><Badge tone={statusTone(value)}>{value}</Badge>{value === "PENDING" && wallet && <button disabled={busy} onClick={() => runWrite("check_golden", [item.id, index])}>Check</button>}</div>)}</div></div>{item.status === "TESTING" && wallet && <div className="row-actions"><button disabled={busy} onClick={() => runWrite("certify_candidate", [item.id])}>Certify if all pass</button><button disabled={busy} onClick={() => runWrite("expire_candidate", [item.id])}>Expire if due</button></div>}</div>)}{Number(suite.candidate_total) > candidateHistoryLoaded && <button disabled={busy} onClick={() => loadOlder("candidate")}>Load older candidates</button>}</div>
             <div className="active-panel"><span>ACTIVE POLICY</span><strong>{active?.usable ? `CERTIFIED · ${active.candidate_id}` : "NO USABLE CERTIFICATION"}</strong><p>{active?.usable ? "This version passed the current frozen regression suite and legitimate tasks." : "A consumer should not treat any candidate as certified at this revision."}</p></div>
             {suite.id === "bs-1" && <div className="detail-block"><div className="block-title"><h4>Recorded demo proof</h4><span>Finalized Studionet transactions</span></div><p className="subtle">These pinned receipts document the demo sequence. The suite status above is read from finalized contract state.</p><div className="proof-links">{DEMO_TRANSACTIONS.map((item) => <a key={item.hash} href={`${EXPLORER}/tx/${item.hash}`} target="_blank" rel="noreferrer">{item.label} ↗</a>)}<a href="https://github.com/Demigodd00/backstop-studionet/blob/main/docs/DEMO_SCRIPT.md" target="_blank" rel="noreferrer">Full review trail ↗</a></div></div>}
             {wallet && <div className="detail-block action-panel">
@@ -236,8 +270,8 @@ export default function BackstopApp() {
                   <button disabled={busy || suite.golden_validation.some((value) => value !== "VALID") || wallet.address.toLowerCase() !== suite.builder.toLowerCase()} onClick={() => runWrite("open_suite", [suite.id])}>Open validated suite</button>
                 </div>
               </>}
-              {["OPEN", "CERTIFIED", "EXPOSED"].includes(suite.status) && Date.now() / 1000 < Number(suite.attack_deadline) && suite.attack_ids.length < 12 && suite.regression_ids.length < 4 && <label>Attack message<textarea value={attackText} onChange={(event) => setAttackText(event.target.value)} placeholder="Write a bounded user message that tries to force an off-policy JSON action." /><button className="button button-small" disabled={busy || !attackText.trim()} onClick={() => runWrite("submit_attack", [suite.id, attackText])}>Submit attack</button></label>}
-              {suite.status === "EXPOSED" && suite.candidate_ids.length < 8 && <label>Candidate replacement prompt<textarea value={candidatePrompt} onChange={(event) => setCandidatePrompt(event.target.value)} placeholder="Repair the policy without refusing legitimate drafting work." /><button className="button button-small" disabled={busy || !candidatePrompt.trim()} onClick={() => runWrite("propose_candidate", [suite.id, candidatePrompt])}>Propose patch</button></label>}
+              {["OPEN", "CERTIFIED", "EXPOSED"].includes(suite.status) && Date.now() / 1000 < Number(suite.attack_deadline) && suite.regression_ids.length < 4 && <label>Attack message<textarea value={attackText} onChange={(event) => setAttackText(event.target.value)} placeholder="Write a bounded user message that tries to force an off-policy JSON action." /><button className="button button-small" disabled={busy || !attackText.trim()} onClick={() => runWrite("submit_attack", [suite.id, attackText])}>Submit attack</button><small>{suite.pending_attack_ids.length} pending attempts currently reserve the remaining regression slots. Expired attempts release capacity on the next submission.</small></label>}
+              {suite.status === "EXPOSED" && <label>Candidate replacement prompt<textarea value={candidatePrompt} onChange={(event) => setCandidatePrompt(event.target.value)} placeholder="Repair the policy without refusing legitimate drafting work." /><button className="button button-small" disabled={busy || !candidatePrompt.trim()} onClick={() => runWrite("propose_candidate", [suite.id, candidatePrompt])}>Propose patch</button><small>{suite.active_candidate_ids.length} candidates currently testing. One of eight slots is reserved for the builder; failed, stale, and expired candidates release capacity.</small></label>}
               {suite.status === "CERTIFIED" && <p className="subtle">The current revision already has an active certification. A new reproduced break will require a new patch.</p>}
             </div>}
           </>}

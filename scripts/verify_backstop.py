@@ -14,8 +14,10 @@ from genlayer_py.assertions import tx_execution_succeeded
 from genlayer_py.chains import studionet
 from genlayer_py.types import TransactionHashVariant, TransactionStatus
 
-from deploy_backstop import PROOF, ROOT
-from demo_backstop import JOURNAL
+from deploy_backstop import ROOT
+
+PROOF = ROOT / "deploy" / "proof.json"
+JOURNAL = ROOT / "deploy" / "demo.json"
 
 QA = ROOT / "deploy" / "browser-qa.json"
 FLOW_QA = ROOT / "deploy" / "browser-flow-qa.json"

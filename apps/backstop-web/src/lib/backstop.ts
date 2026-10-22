@@ -23,7 +23,9 @@ export interface Suite extends Omit<SuiteSummary, "regressions"> {
   goldens: GoldenCase[]; golden_validation: string[]; created_at: number | string;
   opened_at: number | string; attack_deadline: number | string;
   challenge_duration_secs: number | string; attack_ids: string[]; regression_ids: string[];
-  candidate_ids: string[]; certified_revision: number | string; terms_digest: string;
+  pending_attack_ids: string[]; attack_total: number | string;
+  candidate_ids: string[]; active_candidate_ids: string[]; candidate_total: number | string;
+  certified_revision: number | string; terms_digest: string;
 }
 export interface Attack {
   id: string; suite_id: string; hunter: string; message: string; message_digest: string;
@@ -91,6 +93,10 @@ export const getSuite = (id: string) => read<Suite>("get_suite", [id]);
 export const getAttack = (id: string) => read<Attack>("get_attack", [id]);
 export const getCandidate = (id: string) => read<Candidate>("get_candidate", [id]);
 export const getActivePolicy = (id: string) => read<ActivePolicy>("get_active_policy", [id]);
+export const listAttackHistory = (id: string, offset: number, count: number) =>
+  read<{ total: number | string; items: string[] }>("list_attack_history", [id, offset, count]);
+export const listCandidateHistory = (id: string, offset: number, count: number) =>
+  read<{ total: number | string; items: string[] }>("list_candidate_history", [id, offset, count]);
 
 export async function connectWallet(provider: Provider): Promise<WalletSession> {
   const accounts = await provider.request({ method: "eth_requestAccounts" });
