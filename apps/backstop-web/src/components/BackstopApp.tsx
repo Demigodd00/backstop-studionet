@@ -39,6 +39,10 @@ function TxLink({ hash }: { hash: string }) {
   return <a href={`${EXPLORER}/tx/${hash}`} target="_blank" rel="noreferrer">View transaction ↗</a>;
 }
 
+function sortByRecordId<T extends { id: string }>(items: T[]): T[] {
+  return [...items].sort((left, right) => Number(left.id.split("-").at(-1)) - Number(right.id.split("-").at(-1)));
+}
+
 export default function BackstopApp() {
   const [wallet, setWallet] = useState<WalletSession | null>(null);
   const [busy, setBusy] = useState(false);
@@ -79,7 +83,12 @@ export default function BackstopApp() {
       const page = await listSuites();
       setList(page.items);
       setListFailed(false);
-      setSelectedId((current) => current || new URLSearchParams(window.location.search).get("suite") || page.items[0]?.id || "");
+      setSelectedId((current) => {
+        const requested = new URLSearchParams(window.location.search).get("suite");
+        return page.items.find((item) => item.id === current)?.id
+          || page.items.find((item) => item.id === requested)?.id
+          || page.items[0]?.id || "";
+      });
       return page;
     } catch (error) { setListFailed(true); throw error; }
     finally { setListLoading(false); }
@@ -97,7 +106,7 @@ export default function BackstopApp() {
         Promise.all([...new Set([...record.candidate_ids, ...record.active_candidate_ids])].map((item) => getCandidate(item))),
       ]);
       if (sequence !== requestSeq.current) return;
-      setSuite(record); setActive(policy); setAttacks(attackRecords); setCandidates(candidateRecords);
+      setSuite(record); setActive(policy); setAttacks(attackRecords); setCandidates(sortByRecordId(candidateRecords));
       setAttackHistoryLoaded(record.attack_ids.length);
       setCandidateHistoryLoaded(record.candidate_ids.length);
       setSelectedFailed(false);
@@ -133,7 +142,7 @@ export default function BackstopApp() {
         if (Number(page.total) !== total) throw new Error("Candidate history changed; refresh finalized state.");
         const records = await Promise.all(page.items.map(getCandidate));
         if (selectedId === currentId) {
-          setCandidates((items) => [...records.filter((item) => !items.some((shown) => shown.id === item.id)), ...items]);
+          setCandidates((items) => sortByRecordId([...records.filter((item) => !items.some((shown) => shown.id === item.id)), ...items]));
           setCandidateHistoryLoaded(loaded + count);
         }
       }
