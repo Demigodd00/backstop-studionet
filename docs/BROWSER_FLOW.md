@@ -1,6 +1,8 @@
 # BACKSTOP browser-wallet proof
 
-The [public BACKSTOP registry for `bs-3`](https://demigodd00.github.io/backstop-studionet/?suite=bs-3#registry) was used to complete the core write flow with a connected Studionet wallet and human approval of each request. This is a public synthetic agent policy, one attack, and one repair candidate; no external agent tool ran and every write had zero deposit (network gas may apply). The browser reported finality and read back each result. The independent [proof record](../deploy/browser-flow-qa.json) captures receipts, validator votes, and final contract state. Run `python scripts/verify_backstop.py` to check the record against Studionet without a wallet key.
+Historical v0.1 browser-wallet evidence for [the previous contract](https://explorer-studio.genlayer.com/address/0x85ea679b9f495196A2c229C925dA24Dfc10d3401). The public site now reads v0.2; use the [current admission review](ADMISSION_REVIEW.md) for revised proof.
+
+The v0.1 public BACKSTOP registry for `bs-3` was used to complete the core write flow with a connected Studionet wallet and human approval of each request. This is a public synthetic agent policy, one attack, and one repair candidate; no external agent tool ran and every write had zero deposit (network gas may apply). The browser reported finality and read back each result. The independent [proof record](../deploy/browser-flow-qa.json) captures receipts, validator votes, and final contract state. Run `python scripts/verify_backstop.py` to check the record against Studionet without a wallet key.
 
 | Browser action | Finalized transaction | Read-back |
 | --- | --- | --- |

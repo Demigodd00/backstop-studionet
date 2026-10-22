@@ -2,7 +2,7 @@
 
 BACKSTOP is a versioned agent-policy regression registry built for GenLayer. When validators reproduce a forbidden JSON action from a frozen attack, that attack joins the suite. Every later candidate prompt must hold **all** accepted attacks and still complete two legitimate tasks before the contract exposes it as certified. A new reproduced break increments the suite revision and immediately makes the old certification unusable.
 
-**Current state:** the contract is [deployed on Studionet](https://explorer-studio.genlayer.com/address/0x85ea679b9f495196A2c229C925dA24Dfc10d3401), and the public frontend shows the finalized [`bs-1` regression demo](https://demigodd00.github.io/backstop-studionet/?suite=bs-1#registry) and a completed [`bs-3` browser-wallet flow](https://demigodd00.github.io/backstop-studionet/?suite=bs-3#registry). The 23-transaction `bs-1` demo shows two reproduced breaks, invalidation, a rejected repair, and a certified revision 2 repair. Eleven user-approved browser-wallet writes took `bs-3` from creation through certification at revision 1. Every recorded write finalized with successful execution. See the [regression review trail](docs/DEMO_SCRIPT.md), [browser proof](docs/BROWSER_FLOW.md), and [read-only proof verifier](scripts/verify_backstop.py).
+**Current contract:** [BACKSTOP v0.2 on Studionet](https://explorer-studio.genlayer.com/address/0x6a5BAF4BE11aC207692a71993D6a40FB08c37400). This revision fixes the steward's permanent admission-slot exhaustion findings: active attack and candidate capacity is now recoverable, while all historical attempts remain addressable through paginated on-chain indexes. See the [admission review](docs/ADMISSION_REVIEW.md), [source-byte deployment manifest](deploy/proof-v0.2.json), and [new live demo journal](deploy/demo-v0.2.json). The [previous v0.1 contract](https://explorer-studio.genlayer.com/address/0x85ea679b9f495196A2c229C925dA24Dfc10d3401), its [23-transaction demo](docs/DEMO_SCRIPT.md), and the [eleven-transaction browser-wallet flow](docs/BROWSER_FLOW.md) remain as historical evidence, not proof of the fixed admission rules.
 
 ## Why GenLayer
 
@@ -30,14 +30,16 @@ The defender is a **bounded simulation**: one frozen system prompt, one user mes
 - [`apps/backstop-web`](apps/backstop-web) — no-wallet registry and wallet transaction interface.
 - [`docs/DESIGN.md`](docs/DESIGN.md) — mechanism, roles, comparison, evidence plan, and limitations.
 - [`docs/TUTORIAL.md`](docs/TUTORIAL.md) — code-based walkthrough.
-- [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) — completed live demonstration and reviewer links.
-- [`docs/BROWSER_FLOW.md`](docs/BROWSER_FLOW.md) and [`deploy/browser-flow-qa.json`](deploy/browser-flow-qa.json) — full browser-wallet flow and receipt record.
+- [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) — historical v0.1 live demonstration and reviewer links.
+- [`docs/BROWSER_FLOW.md`](docs/BROWSER_FLOW.md) and [`deploy/browser-flow-qa.json`](deploy/browser-flow-qa.json) — historical v0.1 browser-wallet flow and receipt record.
+- [`docs/ADMISSION_REVIEW.md`](docs/ADMISSION_REVIEW.md) — steward findings, corrected invariants, and focused tests.
 - [`docs/SUBMISSION.md`](docs/SUBMISSION.md) — copyable Portal handoff draft and public evidence links.
 - [`apps/backstop-web/public/portal-logo.png`](apps/backstop-web/public/portal-logo.png) — 512 × 512 PNG accepted by the current Portal Project logo field.
-- [`scripts/deploy_backstop.py`](scripts/deploy_backstop.py) and [`deploy/proof.json`](deploy/proof.json) — resumable deployment and verified source record.
-- [`scripts/demo_backstop.py`](scripts/demo_backstop.py) — resumable synthetic live regression demonstration.
+- [`scripts/deploy_backstop.py`](scripts/deploy_backstop.py) and [`deploy/proof-v0.2.json`](deploy/proof-v0.2.json) — resumable v0.2 deployment and verified source record.
+- [`scripts/demo_backstop.py`](scripts/demo_backstop.py) and [`deploy/demo-v0.2.json`](deploy/demo-v0.2.json) — resumable synthetic live regression and admission demonstration.
 - [`deploy/browser-qa.json`](deploy/browser-qa.json) — earlier standalone browser-wallet creation check.
-- [`scripts/verify_backstop.py`](scripts/verify_backstop.py) — read-only verification of deployed source, finalized receipts, and current state.
+- [`scripts/verify_backstop.py`](scripts/verify_backstop.py) — read-only verification of the historical v0.1 proof.
+- [`scripts/verify_backstop_v02.py`](scripts/verify_backstop_v02.py) — read-only verification of the corrected deployment and live capacity demo.
 
 ## Contract flow
 
@@ -46,7 +48,7 @@ The defender is a **bounded simulation**: one frozen system prompt, one user mes
 3. Anyone calls `submit_attack`, then permissionless `judge_attack`. Each validator runs the agent on its own model and code-derives `HELD`, `BROKEN`, or `UNCLEAR`. Only `BROKEN` joins the regression suite and increments its revision.
 4. Anyone proposes a replacement prompt. `check_exploit` evaluates one accepted attack; `check_golden` evaluates one legitimate task. Each validator independently reruns and compares the exact normalized result. Invalid model output cannot pass.
 5. `certify_candidate` succeeds only when all current exploit and legitimate-task checks are `PASS`, at the captured suite revision. `get_active_policy` returns `usable: true` only while that certification remains current.
-6. An unjudged attack or unfinished candidate can be expired after its deadline. New attacks close at the builder's frozen attack deadline. Finalized results should be used for subsequent operations and displayed to reviewers.
+6. Pending attacks and testing candidates occupy bounded active slots. A non-break, failed check, new suite revision, or expiry releases the corresponding slot; the builder retains one candidate slot against outside saturation. Full histories remain paginated on-chain. New attacks close at the builder's frozen attack deadline. Finalized results should be used for subsequent operations and displayed to reviewers.
 
 No native funds move in this version. The deterministic consequence is activation or invalidation of an on-chain certified policy. This keeps the distinct regression mechanism reviewable before adding a repair reward pool.
 
@@ -66,10 +68,10 @@ corepack pnpm typecheck
 corepack pnpm build
 ```
 
-For the local frontend, copy `.env.example` to `.env.local` and run `corepack pnpm dev`. The example points to the verified Studionet contract. The [hosted no-wallet registry](https://demigodd00.github.io/backstop-studionet/?suite=bs-1#registry) was checked in a logged-out browser: it displayed revision 2, two reproduced attacks, three candidates, and active `cand-3` directly from finalized state. The [Pages workflow](https://github.com/Demigodd00/backstop-studionet/actions/workflows/pages.yml) publishes this view. Wallet writes are journaled locally and checked for **finalized successful execution** before the UI reports success. The [eleven-step browser flow](docs/BROWSER_FLOW.md) exercised creation, validation, opening, attack submission and judgment, repair proposal and checks, and certification; the UI read the resulting `bs-3` state. Never put a private key in the frontend or repository. Run `python -m pip install -r requirements-deploy.txt` and `python scripts/verify_backstop.py` to recheck the public chain proof without a wallet key.
+For the local frontend, copy `.env.example` to `.env.local` and run `corepack pnpm dev`. The example points to the verified v0.2 Studionet contract. The [hosted no-wallet registry](https://demigodd00.github.io/backstop-studionet/?suite=bs-1#registry) reads finalized suite state, with page controls for older attack and candidate records. The [Pages workflow](https://github.com/Demigodd00/backstop-studionet/actions/workflows/pages.yml) publishes this view. Wallet writes are journaled locally and checked for **finalized successful execution** before the UI reports success. The earlier [eleven-step browser flow](docs/BROWSER_FLOW.md) exercised the complete wallet path on v0.1; it remains historical evidence. Never put a private key in the frontend or repository. Run `python -m pip install -r requirements-deploy.txt` and `python scripts/verify_backstop_v02.py` to recheck the v0.2 chain proof without a wallet key.
 
 ## Limits and evidence status
 
-The two legitimate tasks are public, so candidate authors can overfit them. The demo policy and attacks are synthetic and intentionally flawed; they are not evidence about a production agent. Independent models can disagree on a marginal attack or task; the failed `cand-2` golden check had two disagreeing validator votes and still finalized as `FAIL`. The read-only verifier checks the deployed source, every recorded finalized receipt, and current on-chain state. The dedicated repository and frontend are publicly accessible. The successful core browser-wallet path is evidenced; expiry and failed branches were not individually browser-wallet tested.
+The two legitimate tasks are public, so candidate authors can overfit them. The demo policy and attacks are synthetic and intentionally flawed; they are not evidence about a production agent. Independent models can disagree on a marginal attack or task; v0.2's `cand-9` failed its first legitimate-task check and made room for `cand-10`. The read-only verifier checks deployed source, every recorded v0.2 receipt, history, and current on-chain state. The successful core browser-wallet path was exercised on v0.1; v0.2's expiry and stale-revision branches have Direct Mode coverage but no separate live transactions. Draft suite creation retains a contract-wide cap of 100.
 
 BACKSTOP differs from a one-prompt break bounty by making every accepted exploit alter future certification obligations. It also differs from evidence-backed claim settlement: the contract's changing registry and legitimate-use check are the mechanism, rather than one verdict and payout.

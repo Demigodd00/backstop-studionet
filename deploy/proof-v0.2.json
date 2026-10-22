@@ -1,0 +1,40 @@
+{
+  "project": "BACKSTOP",
+  "network": "studionet",
+  "commit": "7c0efc4db40a9af086a438f7f3b65464cf3b9a79",
+  "contract_blob": "f6951b5de1c31000127f64db2c34fc6bd159055b",
+  "source_sha256": "981a0a0db550b4a0fc4f95fcc7a45207bb3aa434c0c4311e849b450bb0dd2920",
+  "runner_dependency": "# { \"Depends\": \"py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6\" }",
+  "toolchain": {
+    "genlayer_py": "0.16.3"
+  },
+  "constructor_args": [],
+  "deployer": "0x4C444b3877f8Eb282854dc4fD619d650A1FEdC41",
+  "phase": "verified",
+  "deploy_tx": "0x60668ff263afaa1e2f621790746b5f4ca2db5cb48018265e506f0be532aaf4ee",
+  "updated_at": "2026-10-22T20:27:19.918982+00:00",
+  "receipt_status": "FINALIZED",
+  "execution_result": "SUCCESS",
+  "votes": {
+    "0x0B50B270Eba5D9B780272C4Cf4720260177e761D": "idle",
+    "0x7bf4Ea55363bbe73A4dd5b3900bf03c978A63b6e": "agree",
+    "0x8a876C3F3a4783Bd123982bcBF3c672dc0239004": "agree",
+    "0xa21bc502E3578E4b3039be8c59a257198f7c3f19": "agree",
+    "0xe7eEe8a1c1690b0322d795B80A76ab2Cd1a0eAFd": "idle"
+  },
+  "consensus_result": "MAJORITY_AGREE",
+  "address": "0x6a5BAF4BE11aC207692a71993D6a40FB08c37400",
+  "config": {
+    "attack_grace_secs": 86400,
+    "candidate_ttl_secs": 259200,
+    "max_active_candidates": 8,
+    "max_pending_attacks": 4,
+    "max_regressions": 4,
+    "max_suites": 100,
+    "recent_attack_ids": 12,
+    "recent_candidate_ids": 8,
+    "reserved_builder_candidates": 1,
+    "version": "0.2.0"
+  },
+  "deployed_source_verified": true
+}

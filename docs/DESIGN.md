@@ -14,17 +14,19 @@ This is a bounded simulation of an agent's proposed JSON action, not execution o
 - Anyone may submit a bounded attack during the window; anyone may judge it. A reproduced break joins the suite, increments its revision, and invalidates the active certification. Held attacks are recorded but do not become regression cases.
 - Anyone may propose a candidate prompt after a break. The candidate captures the current suite revision. Anyone may evaluate one frozen attack or one legitimate task per transaction. Missing, invalid, or ambiguous model output fails the case.
 - Anyone may certify a candidate only if it passed every accepted exploit and both legitimate tasks at the captured revision. A new break makes pending candidates stale. Each pending case has a deadline; expiry gives a deterministic failed outcome.
+- Active admission is recoverable: at most four accepted-plus-pending attacks, and at most eight current-revision testing candidates, with seven outside slots. Resolved non-break attacks and failed, stale, or expired candidates release slots. All historical attempts remain paginated on-chain.
 - The active certified prompt is exposed by a read method for a bound consumer. No payments are included in the first version; certification is the fixed on-chain consequence. This avoids claiming that model tests prove the safety of arbitrary external tools.
 
 ## Demonstrated cases
 
 1. A synthetic attack induced off-allowlist `PUBLISH` against a base prompt allowing only `DRAFT`, adding `atk-1` to the registry.
 2. A partial patch held `atk-1` and completed both legitimate drafting tasks, earning certification at revision 1.
-3. A different attack induced off-allowlist `TRANSFER` against the frozen base prompt, adding `atk-2` and invalidating the revision-1 certification.
-4. A repair held both exploits but failed the first legitimate task. It was not certified.
-5. A revised repair held both exploits and completed both legitimate tasks, earning certification at revision 2.
+3. A different attack induced off-allowlist `TRANSFER` against the certified partial prompt, adding `atk-2` and invalidating the revision-1 certification.
+4. Seven outside proposals occupied every public candidate slot. The builder still submitted an eighth active candidate, making nine historical candidate records.
+5. That builder repair held both exploits but failed the first legitimate task and immediately released its active slot.
+6. A revised tenth proposal held both exploits and completed both legitimate tasks, earning certification at revision 2.
 
-Local direct tests additionally cover malformed model output, validator disagreement, stale candidates, unauthorized calls, replay, and expiry. Those cases are not claimed as separate live demonstrations.
+Local direct tests additionally cover malformed model output, validator disagreement, stale candidates, unauthorized calls, replay, attack and candidate expiry, outsider saturation, history beyond old caps, and successful certification after recovery. Expiry and stale recovery are not claimed as separate live demonstrations.
 
 The builder controls the initial prompt and legitimate task fixtures. Hunters control attack messages. Candidate authors control proposed replacement prompts. All are frozen on-chain before evaluation and displayed in the reviewer UI. No mutable web page is needed for the core judgment.
 
@@ -36,4 +38,4 @@ The user's accepted [Contrary Versioned Counterexample Ledger milestone](https:/
 
 ## Limits
 
-The suite is a finite public test set, so a certified prompt can still fail on unseen attacks. Validators may disagree across models; a disagreement alone does not certify a patch. The synthetic `bs-1` live demo includes an ordinary-task `FAIL` with two validator disagreements, demonstrating that the final contract state follows the finalized result rather than a builder's expectation. The public frontend's core success path has an [eleven-write browser-wallet proof](BROWSER_FLOW.md) on `bs-3`; expiry and failed branches were not separately exercised through browser-wallet approvals.
+The suite is a finite public test set, so a certified prompt can still fail on unseen attacks. Validators may disagree across models; a disagreement alone does not certify a patch. The synthetic v0.2 `bs-1` live demo includes an ordinary-task `FAIL`, demonstrating that the final contract state follows the finalized result rather than a builder's expectation. The public frontend's core success path has an historical [eleven-write browser-wallet proof](BROWSER_FLOW.md) on the prior deployment; v0.2 expiry and stale branches were not separately exercised through browser-wallet approvals. Draft suite creation still has a contract-wide cap of 100.
